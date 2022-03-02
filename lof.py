@@ -8,6 +8,7 @@ Proceedings of the 2000 ACM SIGMOD international conference on Management of dat
 '''
 
 import csv
+import math
 
 dataset = []
 profiles = dict()
@@ -15,15 +16,18 @@ top_outlier_profiles = []
 
 K = 3
 N = 10
+total = 0
 
-INPUT_FILEPATH = './mouse.csv'
-OUTPUT_FILEPATH = './outliers.csv'
-RESULTS = './mouse-results.csv'
+INPUT = './mouse.csv'
+OUTPUT_OUTLIERS = './my-outliers.csv'
+EXPECTED_OUTLIERS = './expected-outliers.csv'
+OUTPUT_PROFILES = './my-profiles.csv'
+EXPECTED_PROFILES = './expected-profiles.csv'
 
 def read_data():
     global dataset
 
-    with open(INPUT_FILEPATH) as ip:
+    with open(INPUT) as ip:
         reader = csv.reader(ip)
         for record in reader:
             (x, y, _) = record[0].split(' ')
@@ -41,12 +45,12 @@ class Profile:
         self.lof = 0.0
 
     def get_distance(self, other) -> float:
-        def euclidean_distance_squared(a: tuple, b: tuple) -> float:
+        def euclidean_distance(a: tuple, b: tuple) -> float:
             (x1, y1) = a
             (x2, y2) = b
-            return (x1-x2)**2 + (y1-y2)**2
+            return math.sqrt((x1-x2)**2 + (y1-y2)**2)
 
-        return euclidean_distance_squared(self.coordinates, other.coordinates)
+        return euclidean_distance(self.coordinates, other.coordinates)
 
 def get_knn(center: Profile):
     global profiles
@@ -55,10 +59,10 @@ def get_knn(center: Profile):
         center.distances[other] = center.get_distance(other)
 
     closest_first = sorted(center.distances.items(), key=lambda dyad:dyad[1])
-    knn = set(closest_first[:K+1]) # Including center        
-    center.k_dist = closest_first[K][1]
+    knn = set(closest_first[:K+1]) # Including center -- could this be why my results are incorrect?
+    center.k_dist = closest_first[-1][1]
     i = K+1
-    while closest_first[i][1] == center.k_dist:
+    while i < total and closest_first[i][1] == center.k_dist:
         knn.add(closest_first[i])
         i += 1
     for neighbor in knn:
@@ -66,10 +70,11 @@ def get_knn(center: Profile):
         center.knn_cardinality += 1
 
 def analyze():
-    global profiles, top_outlier_profiles
+    global profiles, top_outlier_profiles, total
 
     for point in dataset:
         profiles[point] = Profile(point)
+        total += 1
 
     # kNN queries
     for record in profiles.values():
@@ -98,21 +103,40 @@ def write_to_file():
     '''Write top N outliers to file, with following profile data:
     coordinates, knn_cardinality, k_dist, lof
     '''
+    # write the full(-ish) profiles first
+    abridged_profiles = []
+    for p in profiles.values():
+        abridged_profiles.append((p.coordinates, p.knn_cardinality, p.k_dist, p.lrd, p.lof))
+    with open(OUTPUT_PROFILES, 'w') as op:
+        writer = csv.writer(op)
+        writer.writerow(['Coords', 'kNN card.', 'k-distance', 'lrd', 'LOF'])
+        writer.writerows(abridged_profiles)
+    # then the outliers
     top_outliers = []
     for (_, v) in top_outlier_profiles:
         top_outliers.append((v.coordinates, v.knn_cardinality, v.k_dist, v.lof))
-    with open(OUTPUT_FILEPATH, 'w') as op:
+    with open(OUTPUT_OUTLIERS, 'w') as op:
         writer = csv.writer(op)
-        writer.writerow(['Coords', 'kNN card.', 'k-distance', 'LOF'])
+        writer.writerow(['Outlier coords', 'kNN card.', 'k-distance', 'LOF'])
         writer.writerows(top_outliers)
 
-def read_expected() -> list:
-    expected = []
-    with open(RESULTS) as exp:
+def read_expected_outliers() -> set:
+    expected = set()
+    with open(EXPECTED_OUTLIERS) as exp:
         reader = csv.reader(exp)
         for record in reader:
             (x, y, _) = record[0].split(' ')
-            expected.append((float(x), float(y)))
+            expected.add((float(x), float(y)))
+    return expected
+
+def read_expected_profiles() -> set:
+    expected = set()
+    with open(EXPECTED_PROFILES) as exp:
+        reader = csv.reader(exp)
+        for record in reader:
+            (_, x, y, _, lof) = record[0].split(' ')
+            lof = lof.split('=')[1]
+            expected.add((float(x), float(y), float(lof)))
     return expected
 
 def test():
@@ -128,16 +152,24 @@ def test():
     # Assert that each LOF satisfies Theorem 1, which means I need the min and max reachability distances in the direct and indirect neighborhoods
     # Assert that no outlier should have a lower LOF score than a non-outlier
     # Even better, with mouse.csv, I can compare with existing results.
-    expected = read_expected()
-    received = []
+    expected = read_expected_outliers()
+    received = set()
     for (_, v) in top_outlier_profiles:
-        received.append(v.coordinates)
+        received.add(v.coordinates)
     assert(len(received) == len(expected))
-    #assert(len(set(received).symmetric_difference(set(expected))) == 0)
+    print("difference in outliers", received.symmetric_difference(expected))
+    #assert(len(received.symmetric_difference(expected)) == 0)
     '''Interesting, the expected results list the points with the 15th and 30th largest LOF scores
     instead of the ones with the 9th and 10th largest scores.
     Could there be a mistake in the way I'm calculating LOF scores? I doubt it, because otherwise there would be a bigger discrepancy than this (I think).
     '''
+    # EVEN better, test `profiles` against EXPECTED_PROFILES
+    expected = read_expected_profiles()  # set of tuples of x, y, lof
+    received = set()
+    for p in profiles.values():
+        received.add((p.coordinates[0], p.coordinates[1], p.lof))
+    #assert(len(received.symmetric_difference(expected)) == 0)
+    print("difference in profiles", received.symmetric_difference(expected))
 
 if __name__ == '__main__':
     read_data()
