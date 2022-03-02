@@ -40,6 +40,7 @@ class Profile:
         self.knn_cardinality = 0
         self.distances = dict()  # Profile: float
         self.k_dist = 0.0
+        # p.reach_dists[q] means reach-dist(q, p) because i want the keys to refer to neighbors, not reverse neighbors
         self.reach_dists = dict()  # Profile: float
         self.lrd = 0.0
         self.lof = 0.0
@@ -80,10 +81,13 @@ def analyze():
     for record in profiles.values():
         get_knn(record)
     
-    # Reachability distances of each point wrt each of its neighbors
+    # Reachability distances of each point wrt each of its REVERSE neighbors
     for record in profiles.values():
         for neighbor in record.knn:
-            record.reach_dists[neighbor] = max(record.distances.get(neighbor), neighbor.k_dist)
+            # i'm wrong right here! it's the reach dist of the neighbor wrt to the center, not the opposite
+            # and we should be looking at the kdist of the center, not the neighbor
+            # reach-dist(neighbor, center) = max { kdist(center), d(neighbor, center) }
+            record.reach_dists[neighbor] = max(record.distances.get(neighbor), record.k_dist)
     
     # lrd's
     for record in profiles.values():
@@ -147,8 +151,9 @@ def test():
     # Assert that the reachability distance is never greater than the corresponding distance
     for record in profiles.values():
         for (other, reach_dist) in record.reach_dists.items():
+            # other is neighbor, reach_dist is reach-dist(other, record)
             assert(other in record.knn)
-            assert(reach_dist == other.k_dist or reach_dist == record.distances[other])  # I'd like a more find-grained assertion
+            assert(reach_dist == record.k_dist or reach_dist == record.distances[other])  # I'd like a more find-grained assertion
     # Assert that each LOF satisfies Theorem 1, which means I need the min and max reachability distances in the direct and indirect neighborhoods
     # Assert that no outlier should have a lower LOF score than a non-outlier
     # Even better, with mouse.csv, I can compare with existing results.
