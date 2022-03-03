@@ -171,6 +171,7 @@ def test():
                 c += 1
         assert(c == record.knn_cardinality)
         # assert(cnt <= K-1)
+        # assert(cnt < record.knn_cardinality)
     for record in profiles.values():
         for (other, reach_dist) in record.reach_dists.items():
             assert(reach_dist == record.k_dist or reach_dist == record.distances.get(other))
@@ -180,8 +181,6 @@ def test():
             else:
                 pass
                 # assert(reach_dist == record.distances.get(other))
-            # assert(other in record.knn)
-            assert(reach_dist == record.k_dist or reach_dist == record.distances.get(other))  # I'd like a more find-grained assertion
     # Assert that each LOF satisfies Theorem 1, which means I need the min and max reachability distances in the direct and indirect neighborhoods
     # Assert that no outlier should have a lower LOF score than a non-outlier
     # Even better, with mouse.csv, I can compare with existing results.
