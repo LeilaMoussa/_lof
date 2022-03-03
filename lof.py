@@ -16,7 +16,7 @@ top_outlier_profiles = []
 
 K = 3
 N = 10
-total = 0
+TOTAL = 500
 
 INPUT = './mouse.csv'
 OUTPUT_OUTLIERS = './my-outliers.csv'
@@ -57,41 +57,56 @@ def get_knn(center: Profile):
     global profiles
 
     for other in profiles.values():
-        center.distances[other] = center.get_distance(other)
+        if center.distances.get(other):
+            continue
+        d = center.get_distance(other)
+        center.distances[other] = d
+        other.distances[center] = d
 
     closest_first = sorted(center.distances.items(), key=lambda dyad:dyad[1])
-    knn = set(closest_first[:K+1]) # Including center -- could this be why my results are incorrect?
+    knn = set(closest_first[:K+1]) # Including center at first
+    knn.remove((center, 0))  # of course, hoping the distance would be 0 as it should be
+    assert(len(knn) == K)
     center.k_dist = closest_first[-1][1]
-    i = K+1
-    while i < total and closest_first[i][1] == center.k_dist:
+    i = K
+    while i < TOTAL and closest_first[i][1] == center.k_dist:
         knn.add(closest_first[i])
         i += 1
+    assert(i >= K)
+    assert(len(knn) >= K)
     for neighbor in knn:
         center.knn.add(neighbor[0])
         center.knn_cardinality += 1
 
 def analyze():
-    global profiles, top_outlier_profiles, total
+    global profiles, top_outlier_profiles
 
     for point in dataset:
         profiles[point] = Profile(point)
-        total += 1
 
     # kNN queries
     for record in profiles.values():
         get_knn(record)
     
-    # Reachability distances of each point wrt each of its REVERSE neighbors
+    # Reachability distances of each point wrt all other points
     for record in profiles.values():
-        for neighbor in record.knn:
-            # i'm wrong right here! it's the reach dist of the neighbor wrt to the center, not the opposite
+        #for neighbor in record.knn:
+        for neighbor in profiles.values():  # inaccurate naming
+            # it's the reach dist of the neighbor wrt to the center, not the opposite
             # and we should be looking at the kdist of the center, not the neighbor
             # reach-dist(neighbor, center) = max { kdist(center), d(neighbor, center) }
             record.reach_dists[neighbor] = max(record.distances.get(neighbor), record.k_dist)
     
     # lrd's
+    # i didn't fix reach dists here
+    # formula: i need reach-dist(point, neighbor)
+    # so use neighbor.reach_dists[point]
     for record in profiles.values():
-        reach_dist_sum = sum(record.reach_dists.values())
+        # assert(len(record.reach_dists.values()) == record.knn_cardinality)
+        # reach_dist_sum = sum(record.reach_dists.values())
+        reach_dist_sum = 0
+        for neighbor in record.knn:
+            reach_dist_sum += neighbor.reach_dists.get(record)
         record.lrd = record.knn_cardinality / reach_dist_sum
 
     # LOF scores
@@ -144,16 +159,29 @@ def read_expected_profiles() -> set:
     return expected
 
 def test():
-    # Assert that all knn cardinalities are >= K
+    # definition of k-distance
     for record in profiles.values():
         assert(record.knn_cardinality >= K)
-    # Assert that the number of points in knn whose distance from center is strictly less than the k-distance is <= K-1
-    # Assert that the reachability distance is never greater than the corresponding distance
+        cnt = 0
+        c = 0
+        for neighbor in record.knn:
+            if record.distances.get(neighbor) < record.k_dist:
+                cnt += 1
+            if record.distances.get(neighbor) <= record.k_dist:
+                c += 1
+        assert(c == record.knn_cardinality)
+        # assert(cnt <= K-1)
     for record in profiles.values():
         for (other, reach_dist) in record.reach_dists.items():
-            # other is neighbor, reach_dist is reach-dist(other, record)
-            assert(other in record.knn)
-            assert(reach_dist == record.k_dist or reach_dist == record.distances[other])  # I'd like a more find-grained assertion
+            assert(reach_dist == record.k_dist or reach_dist == record.distances.get(other))
+            assert(reach_dist == max(record.k_dist, record.distances.get(other)))
+            if other in record.knn or other is record:
+                assert(reach_dist == record.k_dist)
+            else:
+                pass
+                # assert(reach_dist == record.distances.get(other))
+            # assert(other in record.knn)
+            assert(reach_dist == record.k_dist or reach_dist == record.distances.get(other))  # I'd like a more find-grained assertion
     # Assert that each LOF satisfies Theorem 1, which means I need the min and max reachability distances in the direct and indirect neighborhoods
     # Assert that no outlier should have a lower LOF score than a non-outlier
     # Even better, with mouse.csv, I can compare with existing results.
@@ -162,19 +190,19 @@ def test():
     for (_, v) in top_outlier_profiles:
         received.add(v.coordinates)
     assert(len(received) == len(expected))
-    print("difference in outliers", received.symmetric_difference(expected))
+    print("len of difference in outliers", len(received.symmetric_difference(expected)))
     #assert(len(received.symmetric_difference(expected)) == 0)
-    '''Interesting, the expected results list the points with the 15th and 30th largest LOF scores
-    instead of the ones with the 9th and 10th largest scores.
-    Could there be a mistake in the way I'm calculating LOF scores? I doubt it, because otherwise there would be a bigger discrepancy than this (I think).
-    '''
     # EVEN better, test `profiles` against EXPECTED_PROFILES
     expected = read_expected_profiles()  # set of tuples of x, y, lof
     received = set()
     for p in profiles.values():
         received.add((p.coordinates[0], p.coordinates[1], p.lof))
+    assert(len(received) == len(expected))
     #assert(len(received.symmetric_difference(expected)) == 0)
-    print("difference in profiles", received.symmetric_difference(expected))
+    print("len of difference in profiles", len(received.symmetric_difference(expected)))
+    for record in profiles.values():
+        for neighbor in record.knn:
+            assert(neighbor != record)  # not the same point, but it's okay if it's a different point with the same coordinates
 
 if __name__ == '__main__':
     read_data()
