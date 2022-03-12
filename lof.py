@@ -17,6 +17,7 @@ top_outlier_profiles = []
 K = 3
 N = 10
 TOTAL = 500
+SENSITIVITY = 2.23e-16
 
 INPUT = './mouse.csv'
 OUTPUT_OUTLIERS = './my-outliers.csv'
@@ -201,6 +202,16 @@ def test():
     assert(len(received) == len(expected))
     #assert(len(received.symmetric_difference(expected)) == 0)
     print("len of difference in profiles", len(received.symmetric_difference(expected)))
+    #print(received.symmetric_difference(expected))
+    cnt = 0
+    for x in received.symmetric_difference(expected):
+        for y in received.symmetric_difference(expected):
+            (x1, y1, lof1) = x
+            (x2, y2, lof2) = y
+            if x is not y and x1 == x2 and y1 == y2 and abs(lof1-lof2) <= SENSITIVITY:
+                cnt += 1
+    print(cnt)
+    assert(cnt == len(received.symmetric_difference(expected)))
     for record in profiles.values():
         for neighbor in record.knn:
             assert(neighbor != record)  # not the same point, but it's okay if it's a different point with the same coordinates
