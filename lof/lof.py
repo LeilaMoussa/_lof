@@ -39,10 +39,10 @@ class Profile:
         self.coordinates = point
         self.knn = []
         self.knn_cardinality = 0
-        self.distances = dict()  # Profile: float
+        self.distances = dict()
         self.k_dist = 0.0
         # p.reach_dists[q] means reach-dist(q, p) because i want the keys to refer to neighbors, not reverse neighbors
-        self.reach_dists = dict()  # Profile: float
+        self.reach_dists = dict()
         self.lrd = 0.0
         self.lof = 0.0
 
@@ -67,13 +67,13 @@ def get_knn(center: Profile):
 
     assert(center.distances[center] == 0)
 
-    closest_first = sorted(center.distances.items(), key=lambda dyad:dyad[1]) # [(other_point_coords, distance), ...]
+    closest_first = sorted(center.distances.items(), key=lambda dyad:dyad[1])
     assert(len(closest_first) == TOTAL)
     closest_first.remove((center, 0))
     assert(len(closest_first) == TOTAL - 1)
     knn = list(closest_first[:K])
-    assert((center, 0) not in knn) # assuming no duplicates
-    assert(len(knn) == K) # same assumption
+    assert((center, 0) not in knn)
+    assert(len(knn) == K)
     center.k_dist = knn[-1][1]
     i = K
     while i < TOTAL - 1 and closest_first[i][1] == center.k_dist:
@@ -91,6 +91,7 @@ def analyze():
         if profiles.get(point):
             print("Note: There are duplicates.")
             # mouse.csv has no duplicates.
+            # To accommodate duplicates, the code might need more work.
         profiles[point] = Profile(point)
 
     # kNN queries
@@ -173,8 +174,8 @@ def test():
             if record.distances.get(neighbor) <= record.k_dist:
                 c += 1
         assert(c == record.knn_cardinality)
-        # assert(cnt <= K-1)
-        # assert(cnt < record.knn_cardinality)
+        assert(cnt <= K-1)
+        assert(cnt < record.knn_cardinality)
     for record in profiles.values():
         for (other, reach_dist) in record.reach_dists.items():
             assert(reach_dist == record.k_dist or reach_dist == record.distances.get(other))
@@ -182,8 +183,7 @@ def test():
             if other in record.knn or other is record:
                 assert(reach_dist == record.k_dist)
             else:
-                pass
-                # assert(reach_dist == record.distances.get(other))
+                assert(reach_dist == record.distances.get(other))
     # Assert that each LOF satisfies Theorem 1, which means I need the min and max reachability distances in the direct and indirect neighborhoods
     # Assert that no outlier should have a lower LOF score than a non-outlier
     # Even better, with mouse.csv, I can compare with existing results.
@@ -192,7 +192,7 @@ def test():
     for (_, v) in top_outlier_profiles:
         received.add(v.coordinates)
     assert(len(received) == len(expected))
-    print("len of difference in outliers", len(received.symmetric_difference(expected)))
+    #print("len of difference in outliers", len(received.symmetric_difference(expected)))
     #assert(len(received.symmetric_difference(expected)) == 0)
     # EVEN better, test `profiles` against EXPECTED_PROFILES
     expected = read_expected_profiles()  # set of tuples of x, y, lof
@@ -201,7 +201,7 @@ def test():
         received.add((p.coordinates[0], p.coordinates[1], p.lof))
     assert(len(received) == len(expected))
     #assert(len(received.symmetric_difference(expected)) == 0)
-    print("len of difference in profiles", len(received.symmetric_difference(expected)))
+    #print("len of difference in profiles", len(received.symmetric_difference(expected)))
     #print(received.symmetric_difference(expected))
     cnt = 0
     for x in received.symmetric_difference(expected):
@@ -210,11 +210,8 @@ def test():
             (x2, y2, lof2) = y
             if x is not y and x1 == x2 and y1 == y2 and abs(lof1-lof2) <= SENSITIVITY:
                 cnt += 1
-    print(cnt)
+    #print(cnt)
     assert(cnt == len(received.symmetric_difference(expected)))
-    for record in profiles.values():
-        for neighbor in record.knn:
-            assert(neighbor != record)  # not the same point, but it's okay if it's a different point with the same coordinates
 
 if __name__ == '__main__':
     read_data()
