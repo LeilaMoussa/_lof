@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-'''I am painfully aware of how bad this code is.
+'''I am aware of how inefficient this code is.
 For my personal educational purposes only.
 This is a very basic implementation of
 Breunig, Markus M., et al. "LOF: identifying density-based local outliers."
@@ -36,7 +36,7 @@ def read_data():
 class Profile:
     def __init__(self, point: tuple):
         self.coordinates = point
-        self.knn = set()  # set of Profiles
+        self.knn = []
         self.knn_cardinality = 0
         self.distances = dict()  # Profile: float
         self.k_dist = 0.0
@@ -57,31 +57,39 @@ def get_knn(center: Profile):
     global profiles
 
     for other in profiles.values():
-        if center.distances.get(other):
+        if other.distances.get(center):
+            # Distance measure is symmetric.
             continue
         d = center.get_distance(other)
         center.distances[other] = d
         other.distances[center] = d
 
-    closest_first = sorted(center.distances.items(), key=lambda dyad:dyad[1])
-    knn = set(closest_first[:K+1]) # Including center at first
-    knn.remove((center, 0))  # of course, hoping the distance would be 0 as it should be
-    assert(len(knn) == K)
-    center.k_dist = closest_first[-1][1]
+    assert(center.distances[center] == 0)
+
+    closest_first = sorted(center.distances.items(), key=lambda dyad:dyad[1]) # [(other_point_coords, distance), ...]
+    assert(len(closest_first) == TOTAL)
+    closest_first.remove((center, 0))
+    assert(len(closest_first) == TOTAL - 1)
+    knn = list(closest_first[:K])
+    assert((center, 0) not in knn) # assuming no duplicates
+    assert(len(knn) == K) # same assumption
+    center.k_dist = knn[-1][1]
     i = K
-    while i < TOTAL and closest_first[i][1] == center.k_dist:
-        knn.add(closest_first[i])
+    while i < TOTAL - 1 and closest_first[i][1] == center.k_dist:
+        knn.append(closest_first[i])
         i += 1
-    assert(i >= K)
     assert(len(knn) >= K)
     for neighbor in knn:
-        center.knn.add(neighbor[0])
+        center.knn.append(neighbor[0])
         center.knn_cardinality += 1
 
 def analyze():
     global profiles, top_outlier_profiles
 
     for point in dataset:
+        if profiles.get(point):
+            print("Note: There are duplicates.")
+            # mouse.csv has no duplicates.
         profiles[point] = Profile(point)
 
     # kNN queries
@@ -90,24 +98,18 @@ def analyze():
     
     # Reachability distances of each point wrt all other points
     for record in profiles.values():
-        #for neighbor in record.knn:
-        for neighbor in profiles.values():  # inaccurate naming
-            # it's the reach dist of the neighbor wrt to the center, not the opposite
-            # and we should be looking at the kdist of the center, not the neighbor
+        for neighbor in profiles.values():
             # reach-dist(neighbor, center) = max { kdist(center), d(neighbor, center) }
             record.reach_dists[neighbor] = max(record.distances.get(neighbor), record.k_dist)
     
-    # lrd's
-    # i didn't fix reach dists here
-    # formula: i need reach-dist(point, neighbor)
-    # so use neighbor.reach_dists[point]
     for record in profiles.values():
-        # assert(len(record.reach_dists.values()) == record.knn_cardinality)
-        # reach_dist_sum = sum(record.reach_dists.values())
         reach_dist_sum = 0
         for neighbor in record.knn:
             reach_dist_sum += neighbor.reach_dists.get(record)
-        record.lrd = record.knn_cardinality / reach_dist_sum
+        if reach_dist_sum == 0:
+            record.lrd = float('+inf')
+        else:
+            record.lrd = record.knn_cardinality / reach_dist_sum
 
     # LOF scores
     for record in profiles.values():
