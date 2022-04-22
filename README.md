@@ -1,4 +1,4 @@
-# lof
+# \*lof
 My undergrad research programming sandbox
 ----------------
 ## Todos
@@ -9,3 +9,10 @@ For lof.py:
 - [x] get all tests to run and maybe write some more
 - [ ] clean code
 - [ ] maybe optimize
+
+Other stuff to code:
+- Kafka producer + consumer that implements ILOF
+- kd tree kNN search
+- ball tree kNN search
+- lsh kNN search
+- (maybe) hnsw
