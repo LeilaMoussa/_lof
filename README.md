@@ -16,3 +16,4 @@ Other stuff to code:
 - ball tree kNN search
 - lsh kNN search
 - (maybe) hnsw
+- would be really nice to make an interactive static 2-d dataset visualizer where you can filter, highlight, hide, etc.
