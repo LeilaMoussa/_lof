@@ -9,4 +9,5 @@
 - [ ] replace in-mem collections with state stores where possible
 - [ ] prototype lsh
 - [ ] perhaps, prototype nsw
-... and then I can move on to all things summarization: dilof? milof? c_lof? but first, rlof!
+
+...and then I can move on to all things summarization: dilof? milof? c_lof? but first, rlof!
