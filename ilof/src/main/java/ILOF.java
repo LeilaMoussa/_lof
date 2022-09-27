@@ -22,6 +22,7 @@ import java.util.ArrayList;
 
 
 public class ILOF {
+  // unify naming convention here
 
   // actually, forget about mem ceil and summ for now
   // public static ArrayDeque<Point> window = new ArrayDeque<>(); // maybe look at EvictingQueue or CircularFifoQueue instead
@@ -36,6 +37,7 @@ public class ILOF {
   public static HashMap<Point, Integer> neighborhoodCardinalities = new HashMap<>();
   public static HashMap<Point, Double> LRDs = new HashMap<>();
   public static HashMap<Point, Double> LOFs = new HashMap<>();
+  public static HashMap<Point, HashSet<Point>> RkNNs = new HashMap<>();
   public static final int K = 3; // configable
   // get rid of totalPoints
   public static int totalPoints = 0;
@@ -138,7 +140,7 @@ public class ILOF {
     ArrayList<AsymPair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
       Double distance = symDistances.get(new SymPair<>(point, otherPoint));
-      distances.add(new AsymPair<Point, Double>(otherPoint, distance));
+      if (distance > 0) distances.add(new AsymPair<Point, Double>(otherPoint, distance));
     });
     distances.sort(new DistanceComparator<>());
     kDistances.put(point, distances.get(K-1).b); // risky too
@@ -181,6 +183,17 @@ public class ILOF {
     return new KeyValue<Point, Point>(point, point);
   }
 
+  public static KeyValue<Point, Point> queryReversekNN(Point point) {
+    RkNNs.put(point, new HashSet<Point>());
+    pointStore.values().forEach(otherPoint -> {
+      if (kNNs.get(otherPoint).contains(point)) { // wait, is kNNs updated for all other points?
+        RkNNs.get(point).add(otherPoint);
+      }
+    });
+    // or make a stream aggregating RkNNs.get(point)?
+    return new KeyValue<Point, Point>(point, point);
+  }
+
   public static void main(String[] args) {
       Properties props = new Properties();
       props.put(StreamsConfig.APPLICATION_ID_CONFIG, "ilof-application");
@@ -196,6 +209,7 @@ public class ILOF {
       //     .count(Materialized.<String, Long, KeyValueStore<Bytes, byte[]>>as("counts-store"));
       // wordCounts.toStream().to("mouse-count-topic", Produced.with(Serdes.String(), Serdes.Long()));
 
+      // INSERT PHASE
       // format
       textLines.flatMapValues(textLine -> Arrays.asList(format(textLine)))
       // sym dists
@@ -208,6 +222,10 @@ public class ILOF {
       .map((key, point) -> calculateLocalReachDensity(point))
       // lof
       .map((key, point) -> calculateLocalOutlierFactor(point))
+      // UPDATE / MAINTAIN PHASE
+      // get RkNN
+      .map((key, point) -> queryReversekNN(point))
+      // use eq. 5 to update k dists and knns, try to make querykNN reusable
       ;
 
       KafkaStreams streams = new KafkaStreams(builder.build(), props);
