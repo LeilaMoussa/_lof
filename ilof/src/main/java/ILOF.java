@@ -11,8 +11,11 @@ import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.state.KeyValueStore;
 
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Properties;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -30,6 +33,12 @@ public class ILOF {
   public static HashMap<Point, HashSet<Point>> kNNs = new HashMap<>();
   public static HashMap<Point, Double> kDistances = new HashMap<>();
   public static HashMap<AsymPair<Point, Point>, Double> reachDistances = new HashMap<>();
+  public static HashMap<Point, Integer> neighborhoodCardinalities = new HashMap<>();
+  public static HashMap<Point, Double> LRDs = new HashMap<>();
+  public static HashMap<Point, Double> LOFs = new HashMap<>();
+  public static final int K = 3; // configable
+  // get rid of totalPoints
+  public static int totalPoints = 0;
 
   public static class Point {
     double x;
@@ -87,6 +96,33 @@ public class ILOF {
       this.a = a;
       this.b = b;
     }
+
+    // must define equals and hashcode
+    // yeah screw that, i'll use an array
+  }
+
+  public static class DistanceComparator<T> implements Comparator<T> {
+
+    @Override
+    public int compare(Object o1, Object o2) {
+      // risky!
+      double d1 = ((AsymPair<Point, Double>)o1).b;
+      double d2 = ((AsymPair<Point, Double>)o2).b;
+      if (d1 < d2) {
+        return -1;
+      } else if (d1 > d2) {
+        return 1;
+      }
+      return 0;
+    }
+  }
+
+  public static Point format(String line) {
+    String[] split = line.toLowerCase().split("\\W+");
+    Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
+    pointStore.put(formatted, formatted);
+    totalPoints++;
+    return formatted;
   }
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point) {
@@ -98,20 +134,20 @@ public class ILOF {
     return new KeyValue<Point, Point>(point, point);
   }
 
-  public static Point format(String line) {
-    String[] split = line.toLowerCase().split("\\W+");
-    Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
-    pointStore.put(formatted, formatted);
-    return formatted;
-  }
-
   public static KeyValue<Point, Point> querykNN(Point point) {
+    ArrayList<AsymPair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
       Double distance = symDistances.get(new SymPair<>(point, otherPoint));
-      // get pair of (SymPair, dist), sort by dist (using comparator probably)
-      // get at least k, get kdist, add until kdist is exceeded
-      // put all the points in a hashset, get n-card, add to kNNs hashmap
+      distances.add(new AsymPair<Point, Double>(otherPoint, distance));
     });
+    distances.sort(new DistanceComparator<>());
+    kDistances.put(point, distances.get(K-1).b); // risky too
+    int i;
+    for (i = K; i < totalPoints && distances.get(i).b == kDistances.get(point); i++) { }
+    ArrayList<Point> neighbors = new ArrayList<Point>();
+    distances.subList(0, i).forEach(asymPair -> neighbors.add(asymPair.a)); // risky too
+    kNNs.put(point, new HashSet<Point>(neighbors));
+    neighborhoodCardinalities.put(point, i);
     return new KeyValue<Point, Point>(point, point);
   }
 
@@ -119,14 +155,29 @@ public class ILOF {
     kNNs.get(point).forEach(neighbor -> {
       // must double check reach dist calculations and usages throughout (didn't swap operands)
       double reachDist = Math.max(kDistances.get(neighbor), symDistances.get(new SymPair<>(point, neighbor)));
-      AsymPair pair = new AsymPair(point, neighbor);
+      AsymPair<Point, Point> pair = new AsymPair<>(point, neighbor);
       reachDistances.put(pair, reachDist);
     });
     return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> calculateLocalReachDensity(Point point) {
-    
+    double rdSum = 0;
+    Iterator<Point> neighbors = kNNs.get(point).iterator();
+    while (neighbors.hasNext()) {
+      rdSum += reachDistances.get(new AsymPair<Point, Point>(point, neighbors.next()));
+    }
+    LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
+    return new KeyValue<Point, Point>(point, point);
+  }
+
+  public static KeyValue<Point, Point> calculateLocalOutlierFactor(Point point) {
+    double lrdSum = 0;
+    Iterator<Point> neighbors = kNNs.get(point).iterator();
+    while (neighbors.hasNext()) {
+      lrdSum += LRDs.get(neighbors.next());
+    }
+    LOFs.put(point, lrdSum / (LRDs.get(point) * neighborhoodCardinalities.get(point)));
     return new KeyValue<Point, Point>(point, point);
   }
 
@@ -155,6 +206,8 @@ public class ILOF {
       .map((key, point) -> calculateReachDist(point))
       // lrd
       .map((key, point) -> calculateLocalReachDensity(point))
+      // lof
+      .map((key, point) -> calculateLocalOutlierFactor(point))
       ;
 
       KafkaStreams streams = new KafkaStreams(builder.build(), props);
