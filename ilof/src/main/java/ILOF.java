@@ -1,3 +1,4 @@
+import org.apache.kafka.common.errors.DuplicateBrokerRegistrationException;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
@@ -194,6 +195,24 @@ public class ILOF {
     return new KeyValue<Point, Point>(point, point);
   }
 
+  public static KeyValue<Point, Point> updatekDists(Point point) {
+    // don't need to use point here
+    pointStore.values().forEach((otherPoint) -> {
+      double distance = point.getDistanceTo(otherPoint);
+      if (distance < kDistances.get(otherPoint)) {
+        // eject farthest point(s) from kNN(otherPoint) and replace it with point
+        // i.e. eject points whose distance is kdist and add point
+        // so value in kNN should not be of type HashSet<Point>
+        // I think sorted array of (Point, distance)
+        kDistances.put(otherPoint, distance);
+        // kdist changed, provide this stream to the next step
+      } else if (distance == kDistances.get(otherPoint)) {
+        kNNs.get(otherPoint).add(point); // just join the boundary
+      }
+    });
+    return new KeyValue<Point, Point>(point, point);
+  }
+
   public static void main(String[] args) {
       Properties props = new Properties();
       props.put(StreamsConfig.APPLICATION_ID_CONFIG, "ilof-application");
@@ -224,8 +243,12 @@ public class ILOF {
       .map((key, point) -> calculateLocalOutlierFactor(point))
       // UPDATE / MAINTAIN PHASE
       // get RkNN
-      .map((key, point) -> queryReversekNN(point))
+      // the best I could think of right now is update k-dist for everyone, as
+      // i would have no way of knowing the RkNN of new point without updating everyone's kNN first
+      // which means iterating over everyone anyway
+      //.map((key, point) -> queryReversekNN(point))
       // use eq. 5 to update k dists and knns, try to make querykNN reusable
+      .map((key, point) -> updatekDists(point))
       ;
 
       KafkaStreams streams = new KafkaStreams(builder.build(), props);
