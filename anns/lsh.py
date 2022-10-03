@@ -5,6 +5,8 @@ import random
 from collections import defaultdict
 import math
 import time
+import numpy as np
+import faiss
 
 def read_data(file: str) -> List[Tuple[float]]:
     dataset = []
@@ -106,8 +108,7 @@ def calculate_accuracy(approx_kNNs: dict, actual_kNNs: dict, n: int) -> dict:
         )
     return fp_tp_fn
 
-def main(L: int, k: int, file: str) -> tuple: # type
-    dataset = read_data(file)
+def scratch_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple: # type
     n = len(dataset)
     tic = time.perf_counter()
     planes = generate_hyperplanes(L)
@@ -117,15 +118,57 @@ def main(L: int, k: int, file: str) -> tuple: # type
     approx_kNNs = search_kNN(hashtable, hashes, k)
     toc = time.perf_counter()
     elapsed = toc - tic
-    actual_kNNs = actual_search_kNN(dataset, k)
     fp_tp_fn = calculate_accuracy(approx_kNNs, actual_kNNs, n)
     return elapsed, fp_tp_fn
 
-if __name__ == '__main__':
-    [_, L, k, infile] = sys.argv
-    elapsed, fp_tp_fn = main(int(L), int(k), infile)
+def np_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
+    # almost copy paste from pinecone
+    tic = time.perf_counter()
+    plane_norms = np.random.rand(L, 2) - .5  # d = 2
+    np_dataset = [np.asarray(vec) for vec in dataset]
+    dot_products = [np.dot(vec, plane_norms.T) for vec in np_dataset]
+    dot_products = [dp > 0 for dp in dot_products]
+    dot_products = [dp.astype(int) for dp in dot_products]
+    buckets = {}  # string (hash) to int (point id)
+    hashes = []
+    for i in range(len(dot_products)):
+        hash_str = ''.join(dot_products[i].astype(str))
+        hashes.append(hash_str)
+        if hash_str not in buckets.keys():
+            buckets[hash_str] = []
+        buckets[hash_str].append(i)
+    approx_kNNs = search_kNN(buckets, hashes, k)
+    toc = time.perf_counter()
+    elapsed = toc - tic
+    fp_tp_fn = calculate_accuracy(approx_kNNs, actual_kNNs, n)
+    return elapsed, fp_tp_fn
+
+def lib_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
+    index = faiss.IndexLSH(2, L)
+    index.add(dataset)  # must check data format is good
+    # must do this for all points (or all xq) in dataset
+    # xq0 = xq[0].reshape(1, d)  # what's 1?
+    # we use the search method to find the k nearest vectors
+    # D, I = index.search(xq0, k)
+
+
+def display(elapsed: float, fp_tp_fn: dict):
     print("in", elapsed, "seconds")
     print("achieved results")
     # these results SUCK!
     for (k, v) in fp_tp_fn.items():
         print("point", k, ": (fpr:", v[0], ", dr:", v[1], ", fnr:", v[2] + ")")
+
+if __name__ == '__main__':
+    [_, L, k, infile] = sys.argv
+    dataset = read_data(infile)
+    actual_kNNs = actual_search_kNN(dataset, k)
+    elapsed, fp_tp_fn = scratch_lsh(int(L), int(k), dataset, actual_kNNs)
+    print("--SCRATCH--")
+    display(elapsed, fp_tp_fn)
+    elapsed, fp_tp_fn = np_lsh(int(L), int(k), dataset, actual_kNNs)
+    print("--NP--")
+    display(elapsed, fp_tp_fn)
+    elapsed, fp_tp_fn = lib_lsh(int(L), int(k), dataset, actual_kNNs)
+    print("--LIB--")
+    display(elapsed, fp_tp_fn)
