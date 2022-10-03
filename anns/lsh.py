@@ -6,7 +6,7 @@ from collections import defaultdict
 import math
 import time
 import numpy as np
-import faiss
+# import faiss
 
 def read_data(file: str) -> List[Tuple[float]]:
     dataset = []
@@ -140,7 +140,7 @@ def np_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
     approx_kNNs = search_kNN(buckets, hashes, k)
     toc = time.perf_counter()
     elapsed = toc - tic
-    fp_tp_fn = calculate_accuracy(approx_kNNs, actual_kNNs, n)
+    fp_tp_fn = calculate_accuracy(approx_kNNs, actual_kNNs, (len(dataset)))
     return elapsed, fp_tp_fn
 
 def lib_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
@@ -157,18 +157,19 @@ def display(elapsed: float, fp_tp_fn: dict):
     print("achieved results")
     # these results SUCK!
     for (k, v) in fp_tp_fn.items():
-        print("point", k, ": (fpr:", v[0], ", dr:", v[1], ", fnr:", v[2] + ")")
+        print("point", k, ": (fpr:", v[0], ", dr:", v[1], ", fnr:", v[2], ")")
 
 if __name__ == '__main__':
     [_, L, k, infile] = sys.argv
     dataset = read_data(infile)
-    actual_kNNs = actual_search_kNN(dataset, k)
+    actual_kNNs = actual_search_kNN(dataset, int(k))
     elapsed, fp_tp_fn = scratch_lsh(int(L), int(k), dataset, actual_kNNs)
     print("--SCRATCH--")
     display(elapsed, fp_tp_fn)
     elapsed, fp_tp_fn = np_lsh(int(L), int(k), dataset, actual_kNNs)
     print("--NP--")
     display(elapsed, fp_tp_fn)
+    sys.exit(0)
     elapsed, fp_tp_fn = lib_lsh(int(L), int(k), dataset, actual_kNNs)
     print("--LIB--")
     display(elapsed, fp_tp_fn)
