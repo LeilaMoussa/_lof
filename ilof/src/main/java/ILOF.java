@@ -69,7 +69,7 @@ public class ILOF {
     }
   }
 
-  // honestly, i could just replace these pairs with a set and a tuple
+  // i need to replace these pairs with a set and a tuple, or an array
   public static class SymPair<E> {
     final Point a;
     final Point b;
@@ -87,7 +87,7 @@ public class ILOF {
 
     @Override
     public int hashCode() {
-      return a.hashCode() + b.hashCode(); // do i need something better?
+      return a.hashCode() + b.hashCode();
     }
   }
 
@@ -99,9 +99,6 @@ public class ILOF {
       this.a = a;
       this.b = b;
     }
-
-    // must define equals and hashcode
-    // yeah screw that, i'll use an array
   }
 
   public static class DistanceComparator<T> implements Comparator<T> {
@@ -207,7 +204,7 @@ public class ILOF {
         kDistances.put(otherPoint, distance);
         // kdist changed, provide this stream to the next step
       } else if (distance == kDistances.get(otherPoint)) {
-        kNNs.get(otherPoint).add(point); // just join the boundary
+        kNNs.get(otherPoint).add(point);
       }
     });
     return new KeyValue<Point, Point>(point, point);
