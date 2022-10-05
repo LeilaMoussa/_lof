@@ -20,6 +20,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Properties;
+import java.util.Set;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 
@@ -32,7 +33,7 @@ public class ILOF {
   // consider making all these in-memory collections implement KeyValueStore
   public static HashMap<Point, Point> pointStore = new HashMap<>();
   //public static final String SYMMETRIC_DISTANCE_STORE_NAME = "SymmetricDistanceStore";
-  public static HashMap<SymPair<Point>, Double> symDistances = new HashMap<>();
+  public static HashMap<Set<Point>, Double> symDistances = new HashMap<>();
   //public static final String KNN_STORE_NAME = "kNNStore";
   // refactoring asym and sym pair is becoming an urgent necessity
   public static HashMap<Point, PriorityQueue<AsymPair<Point, Double>>> kNNs = new HashMap<>();
@@ -78,27 +79,6 @@ public class ILOF {
   }
 
   // i need to replace these pairs with a set and a tuple, or an array
-  public static class SymPair<E> {
-    final Point a;
-    final Point b;
-
-    public SymPair(Point a, Point b) {
-      this.a = a.x <= b.x ? a : b;
-      this.b = a.x <= b.x ? b : a;
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      return other != null && other instanceof SymPair 
-      && ((SymPair<Point>)other).a.equals(this.a) && ((SymPair<Point>)other).b.equals(this.b);
-    }
-
-    @Override
-    public int hashCode() {
-      return a.hashCode() + b.hashCode();
-    }
-  }
-
   public static class AsymPair<E, T> {
     E a;
     T b;
@@ -136,7 +116,7 @@ public class ILOF {
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point) {
     pointStore.values().forEach((otherPoint) -> {
       final double distance = point.getDistanceTo(otherPoint);
-      symDistances.put(new SymPair<Point>(point, otherPoint), distance); // i want this to be an append only state store
+      symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance); // i want this to be an append only state store
       // each point will give me a collection of distances, so i need to aggregate all these distances into a single store
     });
     return new KeyValue<Point, Point>(point, point);
@@ -145,7 +125,7 @@ public class ILOF {
   public static KeyValue<Point, Point> querykNN(Point point) {
     ArrayList<AsymPair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
-      Double distance = symDistances.get(new SymPair<>(point, otherPoint));
+      Double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
       if (distance > 0) distances.add(new AsymPair<Point, Double>(otherPoint, distance));
       // perhaps, update otherPoint's kNN here so later I can run RkNN
     });
@@ -153,10 +133,11 @@ public class ILOF {
     kDistances.put(point, distances.get(K-1).b); // risky too
     int i;
     for (i = K; i < totalPoints && distances.get(i).b == kDistances.get(point); i++) { }
-    kNNs.put(point, new PriorityQueue<AsymPair<Point, Double>>(new DistanceComparator<>().reversed()));
+    PriorityQueue<AsymPair<Point, Double>> pq = new PriorityQueue<>(new DistanceComparator<>().reversed());
     distances.subList(0, i).forEach(neighbor -> {
-      kNNs.get(point).add(neighbor);
+      pq.add(neighbor);
     });
+    kNNs.put(point, pq);
     neighborhoodCardinalities.put(point, i);
     return new KeyValue<Point, Point>(point, point);
   }
@@ -164,7 +145,7 @@ public class ILOF {
   public static KeyValue<Point, Point> calculateReachDist(Point point) {
     kNNs.get(point).forEach(neighbor -> {
       // must double check reach dist calculations and usages throughout (didn't swap operands)
-      double reachDist = Math.max(kDistances.get(neighbor.a), symDistances.get(new SymPair<>(point, neighbor.a))); // bad
+      double reachDist = Math.max(kDistances.get(neighbor.a), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.a)))); // bad
       AsymPair<Point, Point> pair = new AsymPair<>(point, neighbor.a);
       // this method is also called in the maintain phase
       Double oldRdIfAny = null;
@@ -213,7 +194,7 @@ public class ILOF {
   public static KeyValue<Point, Point> updatekDists(Point point) {
     // don't need to use point here
     pointStore.values().forEach((otherPoint) -> {
-      double distance = symDistances.get(new SymPair<Point>(point, otherPoint));
+      double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
       boolean cardChanged = false;
       if (distance < kDistances.get(otherPoint)) {
         // eject all farthest equidistant neighbors
