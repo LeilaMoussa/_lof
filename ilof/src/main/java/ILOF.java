@@ -261,15 +261,10 @@ public class ILOF {
       .map((key, point) -> calculateLocalReachDensity(point))
       // lof
       .map((key, point) -> calculateLocalOutlierFactor(point))
+
       // UPDATE / MAINTAIN PHASE
       // get RkNN
-      // the best I could think of right now is update k-dist for everyone, as
-      // i would have no way of knowing the RkNN of new point without updating everyone's kNN first
-      // which means iterating over everyone anyway
-      // UPDATE: modify querykNN to update kNNs of all points as i compute their distances to new point
       .map((key, point) -> queryReversekNN(point))
-      // use eq. 5 to update k dists and knns, try to make querykNN reusable
-      // .map((key, point) -> updatekDists(point))
       // update rd
       .map((key, point) -> updateReachDists(point))
       // update lrd
@@ -298,6 +293,7 @@ public class ILOF {
           return top;
         },
 
+        // errs
         Materialized.with(stringSerde, new PriorityQueueSerde<>(new DistanceComparator<>().reversed(), valueAvroSerde)) // just plug in the same confluence and avro deps
         )
       ;
