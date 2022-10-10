@@ -29,14 +29,9 @@ import org.javatuples.Pair;
 public class ILOF {
   // unify naming convention here
 
-  // actually, forget about mem ceil and summ for now
-  // public static ArrayDeque<Point> window = new ArrayDeque<>(); // maybe look at EvictingQueue or CircularFifoQueue instead
-  // consider making all these in-memory collections implement KeyValueStore
+  // maybe look at EvictingQueue or CircularFifoQueue for mem ceil
   public static HashMap<Point, Point> pointStore = new HashMap<>();
-  //public static final String SYMMETRIC_DISTANCE_STORE_NAME = "SymmetricDistanceStore";
   public static HashMap<Set<Point>, Double> symDistances = new HashMap<>();
-  //public static final String KNN_STORE_NAME = "kNNStore";
-  // refactoring asym and sym pair is becoming an urgent necessity
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs = new HashMap<>();
   public static HashMap<Point, Double> kDistances = new HashMap<>();
   public static HashMap<Pair<Point, Point>, Double> reachDistances = new HashMap<>();
@@ -44,13 +39,13 @@ public class ILOF {
   public static HashMap<Point, Double> LRDs = new HashMap<>();
   public static HashMap<Point, Double> LOFs = new HashMap<>();
   public static HashMap<Point, HashSet<Point>> RkNNs = new HashMap<>();
-  // collections for points whose profiles changed need to made into streams
+
   public static HashSet<Point> kDistChanged = new HashSet<>();
   public static HashSet<Point> reachDistChanged = new HashSet<>();
   public static HashSet<Point> neighCardinalityChanged = new HashSet<>();
   public static HashSet<Point> lrdChanged = new HashSet<>();
-  public static final int K = 3; // configable
-  // get rid of totalPoints
+  public static final int K = 3; // make configable
+
   public static int totalPoints = 0;
 
   public static class Point {
@@ -105,21 +100,42 @@ public class ILOF {
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point) {
     pointStore.values().forEach((otherPoint) -> {
       final double distance = point.getDistanceTo(otherPoint);
-      symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance); // i want this to be an append only state store
-      // each point will give me a collection of distances, so i need to aggregate all these distances into a single store
+      symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
     });
     return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> querykNN(Point point) {
+    // VERY IMPORTANT: how is the stream executed? required to know when to clear neighCardinalityChanged
+    // because it changes from one instance of the maintenance phase to another
+    // maybe add an operation at the end that clears the data structures that are only used for one iteration
     ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
-      Double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
-      if (distance > 0) distances.add(new Pair<Point, Double>(otherPoint, distance));
-      // perhaps, update otherPoint's kNN here so later I can run RkNN
+      double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
+      if (distance > 0) {
+        distances.add(new Pair<Point, Double>(otherPoint, distance));
+        // update all other kNNs to be able to get RkNN later
+        boolean cardChanged = false;
+        if (distance < kDistances.get(otherPoint)) {
+          while (kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
+            kNNs.get(otherPoint).poll();
+          }
+          kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
+          kDistances.put(otherPoint, distance);
+          kDistChanged.add(otherPoint);
+          cardChanged = true;
+        } else if (distance == kDistances.get(otherPoint)) {
+          kNNs.get(otherPoint).add(new Pair<Point,Double>(point, distance));
+          cardChanged = true;
+        }
+        neighborhoodCardinalities.put(otherPoint, kNNs.get(otherPoint).size());
+        if (cardChanged) {
+          neighCardinalityChanged.add(otherPoint);
+        }
+      }
     });
     distances.sort(new DistanceComparator<>());
-    kDistances.put(point, distances.get(K-1).getValue1()); // risky too
+    kDistances.put(point, distances.get(K-1).getValue1());
     int i;
     for (i = K; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
     PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(new DistanceComparator<>().reversed());
@@ -169,43 +185,26 @@ public class ILOF {
     return new KeyValue<Point, Point>(point, point);
   }
 
-  // public static KeyValue<Point, Point> queryReversekNN(Point point) {
-  //   RkNNs.put(point, new HashSet<Point>());
-  //   pointStore.values().forEach(otherPoint -> {
-  //     if (kNNs.get(otherPoint).contains(point)) { // fix this line, contains(Pair)
-  //       RkNNs.get(point).add(otherPoint);
-  //     }
-  //   });
-  //   // or make a stream aggregating RkNNs.get(point)?
-  //   return new KeyValue<Point, Point>(point, point);
-  // }
-
-  public static KeyValue<Point, Point> updatekDists(Point point) {
-    // don't need to use point here
-    pointStore.values().forEach((otherPoint) -> {
-      double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
-      boolean cardChanged = false;
-      if (distance < kDistances.get(otherPoint)) {
-        // eject all farthest equidistant neighbors
-        while (kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
-          kNNs.get(otherPoint).poll();
-        }
-        kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
-        kDistances.put(otherPoint, distance);
-        // kdist changed, provide this stream to the next step
-        kDistChanged.add(otherPoint);
-        cardChanged = true;
-      } else if (distance == kDistances.get(otherPoint)) {
-        kNNs.get(otherPoint).add(new Pair<Point,Double>(point, distance));
-        cardChanged = true;
-      }
-      neighborhoodCardinalities.put(otherPoint, kNNs.get(otherPoint).size());
-      if (cardChanged) {
-        neighCardinalityChanged.add(otherPoint);
+  public static KeyValue<Point, Point> queryReversekNN(Point point) {
+    HashSet<Point> rknns = new HashSet<>();
+    pointStore.values().forEach(otherPoint -> {
+      double dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
+      if (kNNs.get(otherPoint).contains(new Pair<Point, Double>(point, dist))) {
+        rknns.add(otherPoint);
       }
     });
+    RkNNs.put(point, rknns);
     return new KeyValue<Point, Point>(point, point);
   }
+
+  // public static KeyValue<Point, Point> updatekDists(Point point) {
+  //   // don't need to use point here
+  //   pointStore.values().forEach((otherPoint) -> {
+  //     double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
+      
+  //   });
+  //   return new KeyValue<Point, Point>(point, point);
+  // }
 
   public static KeyValue<Point, Point> updateReachDists(Point point) {
     kDistChanged.forEach(somePoint -> {
@@ -217,9 +216,30 @@ public class ILOF {
   }
 
   public static KeyValue<Point, Point> updateLocalReachDensities(Point point) {
-    // points on which to run computelrd():
-    // points in neighcardinalitychanged
-    // rknn of points in rdchanged
+    HashSet<Point> target = new HashSet<>();
+    target.addAll(neighCardinalityChanged);
+    reachDistChanged.forEach(rdChanged -> {
+      target.addAll(RkNNs.get(rdChanged));
+    });
+    target.forEach(toUpdate -> {
+      double oldLrd = LRDs.get(toUpdate);
+      calculateLocalReachDensity(toUpdate);
+      if (oldLrd != LRDs.get(toUpdate)) {
+        lrdChanged.add(toUpdate);
+      }
+    });
+    return new KeyValue<Point, Point>(point, point);
+  }
+
+  public static KeyValue<Point, Point> updateLocalOutlierFactors(Point point) {
+    HashSet<Point> target = new HashSet<>();
+    target.addAll(lrdChanged);
+    lrdChanged.forEach(changed -> {
+      target.addAll(RkNNs.get(changed));
+    });
+    target.forEach(toUpdate -> {
+      calculateLocalOutlierFactor(toUpdate);
+    });
     return new KeyValue<Point, Point>(point, point);
   }
 
@@ -252,13 +272,17 @@ public class ILOF {
       // i would have no way of knowing the RkNN of new point without updating everyone's kNN first
       // which means iterating over everyone anyway
       // UPDATE: modify querykNN to update kNNs of all points as i compute their distances to new point
-      //.map((key, point) -> queryReversekNN(point))
+      .map((key, point) -> queryReversekNN(point))
       // use eq. 5 to update k dists and knns, try to make querykNN reusable
-      .map((key, point) -> updatekDists(point))
+      // .map((key, point) -> updatekDists(point))
       // update rd
       .map((key, point) -> updateReachDists(point))
       // update lrd
       .map((key, point) -> updateLocalReachDensities(point))
+      // update lof
+      .map((key, point) -> updateLocalOutlierFactors(point))
+      // clear *changed collections (?)
+      // top N aggregation
       ;
 
       KafkaStreams streams = new KafkaStreams(builder.build(), props);
