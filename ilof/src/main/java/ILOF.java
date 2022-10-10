@@ -1,5 +1,6 @@
 import org.apache.kafka.common.errors.DuplicateBrokerRegistrationException;
 import org.apache.kafka.common.errors.NoReassignmentInProgressException;
+import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
@@ -150,7 +151,7 @@ public class ILOF {
   public static KeyValue<Point, Point> calculateReachDist(Point point) {
     kNNs.get(point).forEach(neighbor -> {
       // must double check reach dist calculations and usages throughout (didn't swap operands)
-      double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0())))); // bad
+      double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0()))));
       Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
       // this method is also called in the maintain phase
       Double oldRdIfAny = null;
@@ -196,15 +197,6 @@ public class ILOF {
     RkNNs.put(point, rknns);
     return new KeyValue<Point, Point>(point, point);
   }
-
-  // public static KeyValue<Point, Point> updatekDists(Point point) {
-  //   // don't need to use point here
-  //   pointStore.values().forEach((otherPoint) -> {
-  //     double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
-      
-  //   });
-  //   return new KeyValue<Point, Point>(point, point);
-  // }
 
   public static KeyValue<Point, Point> updateReachDists(Point point) {
     kDistChanged.forEach(somePoint -> {
@@ -253,8 +245,11 @@ public class ILOF {
       StreamsBuilder builder = new StreamsBuilder();
       KStream<String, String> textLines = builder.stream("mouse-topic"); // next time: why isn't mouse-topic getting populated?
 
+      final Serde<String> stringSerde = Serdes.String();
+
       // INSERT PHASE
       // format
+      KTable<String, PriorityQueue<Pair<Point, Double>>> topOutliers = 
       textLines.flatMapValues(textLine -> Arrays.asList(format(textLine)))
       // sym dists
       .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint))
@@ -282,10 +277,54 @@ public class ILOF {
       // update lof
       .map((key, point) -> updateLocalOutlierFactors(point))
       // clear *changed collections (?)
+      // i need to ascertain whether the same collection is used concurrently at different stages of the pipeline
       // top N aggregation
+      .groupBy((key, point) -> {
+        return new KeyValue<Point, Double>(point, LOFs.get(point));
+      })
+      .aggregate(
+        // the initializer
+        () -> new PriorityQueue<>(new DistanceComparator<>().reversed()), // might want to rename this comparator
+
+        // the "add" aggregator
+        (point, lofScore, top) -> {
+          top.add(new Pair<Point, Double>(point, lofScore));
+          return top;
+        },
+
+        // the "remove" aggregator
+        (point, lofScore, top) -> {
+          top.remove(new Pair<Point, Double>(point, lofScore));
+          return top;
+        },
+
+        Materialized.with(stringSerde, new PriorityQueueSerde<>(new DistanceComparator<>().reversed(), valueAvroSerde)) // just plug in the same confluence and avro deps
+        )
       ;
 
+
+      final int topN = 10; // configable!
+      final KTable<String, String> topViewCounts = topOutliers
+        .mapValues(queue -> {
+          final StringBuilder sb = new StringBuilder();
+          for (int i = 0; i < topN; i++) {
+            final Pair<Point, Double> record = queue.poll();
+            if (record == null) {
+              break;
+            }
+            sb.append(record.getValue0().toString());
+            sb.append(" : ");
+            sb.append(record.getValue1().toString());
+            sb.append("\n");
+          }
+          return sb.toString();
+        });
+
+      topViewCounts.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
+
+
       KafkaStreams streams = new KafkaStreams(builder.build(), props);
+      // streams.cleanUp(); // ?
       streams.start();
   }
     
