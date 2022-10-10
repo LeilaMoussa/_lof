@@ -24,6 +24,7 @@ import java.util.Set;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 
+import org.javatuples.Pair;
 
 public class ILOF {
   // unify naming convention here
@@ -36,9 +37,9 @@ public class ILOF {
   public static HashMap<Set<Point>, Double> symDistances = new HashMap<>();
   //public static final String KNN_STORE_NAME = "kNNStore";
   // refactoring asym and sym pair is becoming an urgent necessity
-  public static HashMap<Point, PriorityQueue<AsymPair<Point, Double>>> kNNs = new HashMap<>();
+  public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs = new HashMap<>();
   public static HashMap<Point, Double> kDistances = new HashMap<>();
-  public static HashMap<AsymPair<Point, Point>, Double> reachDistances = new HashMap<>();
+  public static HashMap<Pair<Point, Point>, Double> reachDistances = new HashMap<>();
   public static HashMap<Point, Integer> neighborhoodCardinalities = new HashMap<>();
   public static HashMap<Point, Double> LRDs = new HashMap<>();
   public static HashMap<Point, Double> LOFs = new HashMap<>();
@@ -78,24 +79,12 @@ public class ILOF {
     }
   }
 
-  // i need to replace these pairs with a set and a tuple, or an array
-  public static class AsymPair<E, T> {
-    E a;
-    T b;
-
-    public AsymPair(E a, T b) {
-      this.a = a;
-      this.b = b;
-    }
-  }
-
   public static class DistanceComparator<T> implements Comparator<T> {
 
     @Override
     public int compare(Object o1, Object o2) {
-      // risky!
-      double d1 = ((AsymPair<Point, Double>)o1).b;
-      double d2 = ((AsymPair<Point, Double>)o2).b;
+      double d1 = ((Pair<Point, Double>)o1).getValue1();
+      double d2 = ((Pair<Point, Double>)o2).getValue1();
       if (d1 < d2) {
         return -1;
       } else if (d1 > d2) {
@@ -123,17 +112,17 @@ public class ILOF {
   }
 
   public static KeyValue<Point, Point> querykNN(Point point) {
-    ArrayList<AsymPair<Point, Double>> distances = new ArrayList<>();
+    ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
       Double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
-      if (distance > 0) distances.add(new AsymPair<Point, Double>(otherPoint, distance));
+      if (distance > 0) distances.add(new Pair<Point, Double>(otherPoint, distance));
       // perhaps, update otherPoint's kNN here so later I can run RkNN
     });
     distances.sort(new DistanceComparator<>());
-    kDistances.put(point, distances.get(K-1).b); // risky too
+    kDistances.put(point, distances.get(K-1).getValue1()); // risky too
     int i;
-    for (i = K; i < totalPoints && distances.get(i).b == kDistances.get(point); i++) { }
-    PriorityQueue<AsymPair<Point, Double>> pq = new PriorityQueue<>(new DistanceComparator<>().reversed());
+    for (i = K; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
+    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(new DistanceComparator<>().reversed());
     distances.subList(0, i).forEach(neighbor -> {
       pq.add(neighbor);
     });
@@ -145,8 +134,8 @@ public class ILOF {
   public static KeyValue<Point, Point> calculateReachDist(Point point) {
     kNNs.get(point).forEach(neighbor -> {
       // must double check reach dist calculations and usages throughout (didn't swap operands)
-      double reachDist = Math.max(kDistances.get(neighbor.a), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.a)))); // bad
-      AsymPair<Point, Point> pair = new AsymPair<>(point, neighbor.a);
+      double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0())))); // bad
+      Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
       // this method is also called in the maintain phase
       Double oldRdIfAny = null;
       if (reachDistances.containsKey(pair)) {
@@ -162,9 +151,9 @@ public class ILOF {
 
   public static KeyValue<Point, Point> calculateLocalReachDensity(Point point) {
     double rdSum = 0;
-    Iterator<AsymPair<Point, Double>> neighbors = kNNs.get(point).iterator();
+    Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
     while (neighbors.hasNext()) {
-      rdSum += reachDistances.get(new AsymPair<Point, Point>(point, neighbors.next().a));
+      rdSum += reachDistances.get(new Pair<Point, Point>(point, neighbors.next().getValue0()));
     }
     LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
     return new KeyValue<Point, Point>(point, point);
@@ -172,9 +161,9 @@ public class ILOF {
 
   public static KeyValue<Point, Point> calculateLocalOutlierFactor(Point point) {
     double lrdSum = 0;
-    Iterator<AsymPair<Point, Double>> neighbors = kNNs.get(point).iterator();
+    Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
     while (neighbors.hasNext()) {
-      lrdSum += LRDs.get(neighbors.next().a);
+      lrdSum += LRDs.get(neighbors.next().getValue0());
     }
     LOFs.put(point, lrdSum / (LRDs.get(point) * neighborhoodCardinalities.get(point)));
     return new KeyValue<Point, Point>(point, point);
@@ -183,7 +172,7 @@ public class ILOF {
   // public static KeyValue<Point, Point> queryReversekNN(Point point) {
   //   RkNNs.put(point, new HashSet<Point>());
   //   pointStore.values().forEach(otherPoint -> {
-  //     if (kNNs.get(otherPoint).contains(point)) { // fix this line, contains(AsymPair)
+  //     if (kNNs.get(otherPoint).contains(point)) { // fix this line, contains(Pair)
   //       RkNNs.get(point).add(otherPoint);
   //     }
   //   });
@@ -198,16 +187,16 @@ public class ILOF {
       boolean cardChanged = false;
       if (distance < kDistances.get(otherPoint)) {
         // eject all farthest equidistant neighbors
-        while (kNNs.get(otherPoint).peek().b == kDistances.get(otherPoint)) {
+        while (kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
           kNNs.get(otherPoint).poll();
         }
-        kNNs.get(otherPoint).add(new AsymPair<Point, Double>(point, distance));
+        kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
         kDistances.put(otherPoint, distance);
         // kdist changed, provide this stream to the next step
         kDistChanged.add(otherPoint);
         cardChanged = true;
       } else if (distance == kDistances.get(otherPoint)) {
-        kNNs.get(otherPoint).add(new AsymPair<Point,Double>(point, distance));
+        kNNs.get(otherPoint).add(new Pair<Point,Double>(point, distance));
         cardChanged = true;
       }
       neighborhoodCardinalities.put(otherPoint, kNNs.get(otherPoint).size());
@@ -221,7 +210,7 @@ public class ILOF {
   public static KeyValue<Point, Point> updateReachDists(Point point) {
     kDistChanged.forEach(somePoint -> {
       kNNs.get(somePoint).forEach(neighbor -> {
-        calculateReachDist(neighbor.a);
+        calculateReachDist(neighbor.getValue0());
       });
     });
     return new KeyValue<Point, Point>(point, point);
