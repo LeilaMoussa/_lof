@@ -9,7 +9,7 @@
   - [x] make changes to querykNN() to be able to use queryRkNN()
   - [x] updateLrd
   - [x] updateLof
-  - [ ] think about clearing desposable collections
+  - [ ] think about clearing disposable collections
 - [ ] finish aggregation of ilof
   - [ ] use avro and/or confluence classes for serde
 - [ ] test ilof
