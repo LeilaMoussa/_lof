@@ -5,7 +5,11 @@ import time, sys
 
 def gen(infile: str):
     with open(infile) as f:
-        yield f.readline()
+        #yield f.readline()
+        # temporary! don't read the whole file at once!
+        data = f.read()
+        data = data.split('\n')
+        return data
 
 if __name__ == '__main__':
     [_, topic_name, source_file, interval_sec] = sys.argv
@@ -28,7 +32,10 @@ if __name__ == '__main__':
         print("at", line, '.')
         if not line:
             break
-        producer.send(topic_name, line.strip().strip('\n').encode())
+        line = line.strip().strip('\n')
+        words = line.split()
+        line = words[0] + " " + words[1]
+        producer.send(topic_name, line.encode())
         time.sleep(interval)
 
     producer.close()
