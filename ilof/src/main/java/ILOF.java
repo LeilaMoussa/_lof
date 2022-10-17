@@ -1,28 +1,21 @@
-import org.apache.kafka.common.errors.DuplicateBrokerRegistrationException;
-import org.apache.kafka.common.errors.NoReassignmentInProgressException;
-import org.apache.kafka.common.serialization.Serde;
+// import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.state.KeyValueStore;
+// import org.apache.kafka.streams.kstream.KTable;
+// import org.apache.kafka.streams.kstream.Materialized;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Properties;
 import java.util.Set;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 
 import org.javatuples.Pair;
@@ -75,6 +68,7 @@ public class ILOF {
     }
   }
 
+  // consider making this comparator a one-line lambda
   public static class DistanceComparator<T> implements Comparator<T> {
 
     @Override
@@ -245,11 +239,11 @@ public class ILOF {
       StreamsBuilder builder = new StreamsBuilder();
       KStream<String, String> textLines = builder.stream("mouse-topic"); // next time: why isn't mouse-topic getting populated?
 
-      final Serde<String> stringSerde = Serdes.String();
+      //final Serde<String> stringSerde = Serdes.String();
 
       // INSERT PHASE
       // format
-      KTable<String, PriorityQueue<Pair<Point, Double>>> topOutliers = 
+      //KStream<Point, Point> topOutliers = 
       textLines.flatMapValues(textLine -> Arrays.asList(format(textLine)))
       // sym dists
       .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint))
@@ -274,49 +268,51 @@ public class ILOF {
       // clear *changed collections (?)
       // i need to ascertain whether the same collection is used concurrently at different stages of the pipeline
       // top N aggregation
-      .groupBy((key, point) -> {
-        return new KeyValue<Point, Double>(point, LOFs.get(point));
-      })
-      .aggregate(
-        // the initializer
-        () -> new PriorityQueue<>(new DistanceComparator<>().reversed()), // might want to rename this comparator
+      // .groupBy((key, point) -> {
+      //   //return new KeyValue<Point, Double>(point, LOFs.get(point));
+      //   final GenericRecord pointProfile = new GenericData.Record();
+      // },
+      // Grouped.with())
+      // .aggregate(
+      //   // the initializer
+      //   () -> new PriorityQueue<>(new DistanceComparator<>().reversed()), // might want to rename this comparator
 
-        // the "add" aggregator
-        (point, lofScore, top) -> {
-          top.add(new Pair<Point, Double>(point, lofScore));
-          return top;
-        },
+      //   // the "add" aggregator
+      //   (point, lofScore, top) -> {
+      //     top.add(new Pair<Point, Double>(point, lofScore));
+      //     return top;
+      //   },
 
-        // the "remove" aggregator
-        (point, lofScore, top) -> {
-          top.remove(new Pair<Point, Double>(point, lofScore));
-          return top;
-        },
+      //   // the "remove" aggregator
+      //   (point, lofScore, top) -> {
+      //     top.remove(new Pair<Point, Double>(point, lofScore));
+      //     return top;
+      //   },
 
-        // errs
-        Materialized.with(stringSerde, new PriorityQueueSerde<>(new DistanceComparator<>().reversed(), valueAvroSerde)) // just plug in the same confluence and avro deps
-        )
+      //   // errs
+      //   Materialized.with(stringSerde, new PriorityQueueSerde<>(new DistanceComparator<>().reversed(), valueAvroSerde)) // just plug in the same confluence and avro deps
+      //   )
       ;
 
 
-      final int topN = 10; // configable!
-      final KTable<String, String> topViewCounts = topOutliers
-        .mapValues(queue -> {
-          final StringBuilder sb = new StringBuilder();
-          for (int i = 0; i < topN; i++) {
-            final Pair<Point, Double> record = queue.poll();
-            if (record == null) {
-              break;
-            }
-            sb.append(record.getValue0().toString());
-            sb.append(" : ");
-            sb.append(record.getValue1().toString());
-            sb.append("\n");
-          }
-          return sb.toString();
-        });
+      // final int topN = 10; // configable!
+      // final KTable<String, String> topViewCounts = topOutliers
+      //   .mapValues(queue -> {
+      //     final StringBuilder sb = new StringBuilder();
+      //     for (int i = 0; i < topN; i++) {
+      //       final Pair<Point, Double> record = queue.poll();
+      //       if (record == null) {
+      //         break;
+      //       }
+      //       sb.append(record.getValue0().toString());
+      //       sb.append(" : ");
+      //       sb.append(record.getValue1().toString());
+      //       sb.append("\n");
+      //     }
+      //     return sb.toString();
+      //   });
 
-      topViewCounts.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
+      // topViewCounts.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
 
 
       KafkaStreams streams = new KafkaStreams(builder.build(), props);
