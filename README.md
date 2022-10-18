@@ -9,13 +9,14 @@
   - [x] make changes to querykNN() to be able to use queryRkNN()
   - [x] updateLrd
   - [x] updateLof
-  - [ ] think about clearing disposable collections
+  - [ ] clear disposable collections
 - [ ] finish aggregation of ilof
   - [ ] use avro and/or confluence classes for serde
 - [ ] test ilof
-  - [ ] populate mouse-topic
+  - [x] populate topic
+  - [ ] debug indexing and map keying errors -> make sure all points run all the way through
   - [ ] inspect mouse-outliers-topic
-  - [ ] (when correct) write simple producer from larger dataset
+  - [x] write simple producer
   - [ ] then sink outliers into file and compare file with correct answers (py?)
 - [ ] refactor ilof
 - [ ] config
