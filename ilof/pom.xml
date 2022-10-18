@@ -5,6 +5,10 @@
   <name>ILOF</name>
   <packaging>jar</packaging>
   <version>1.0</version>
+  <properties>
+        <exec.mainClass>ILOF</exec.mainClass>
+        <jdk.version>1.8</jdk.version>
+  </properties>
   <dependencies>
     <dependency>
         <groupId>org.apache.kafka</groupId>
@@ -12,8 +16,8 @@
         <version>3.2.1</version>
     </dependency>
     <dependency>  
-        <groupId>org.javatuples</groupId>  
-        <artifactId>javatuples</artifactId>  
+        <groupId>org.javatuples</groupId>
+        <artifactId>javatuples</artifactId>
         <version>1.2</version>  
     </dependency> 
   </dependencies>
@@ -28,6 +32,33 @@
                 <target>1.8</target>
                 <encoding>UTF-8</encoding>
             </configuration>
+        </plugin>
+        <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>1.2.1</version>
+            <configuration>
+                <mainClass>ILOF</mainClass>
+            </configuration>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <version>3.1.1</version>
+            <configuration>
+                <descriptorRefs>
+                    <descriptorRef>jar-with-dependencies</descriptorRef>
+                </descriptorRefs>
+            </configuration>
+            <executions>
+                <execution>
+                    <id>make-assembly</id>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>single</goal>
+                    </goals>
+                </execution>
+            </executions>
         </plugin>
     </plugins>
 </build>
