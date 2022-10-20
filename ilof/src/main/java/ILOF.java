@@ -66,6 +66,11 @@ public class ILOF {
     public int hashCode() {
       return (new Double(this.x).toString() + new Double(this.y).toString()).hashCode();
     }
+
+    @Override
+    public String toString() {
+      return this.x + " " + this.y;
+    }
   }
 
   // consider making this comparator a one-line lambda
@@ -101,9 +106,6 @@ public class ILOF {
   }
 
   public static KeyValue<Point, Point> querykNN(Point point) {
-    // VERY IMPORTANT: how is the stream executed? required to know when to clear neighCardinalityChanged
-    // because it changes from one instance of the maintenance phase to another
-    // maybe add an operation at the end that clears the data structures that are only used for one iteration
     ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
       double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
@@ -219,7 +221,6 @@ public class ILOF {
   }
 
   public static KeyValue<Point, Point> updateLocalOutlierFactors(Point point) {
-    System.out.println("last stage w total" + totalPoints);
     HashSet<Point> target = new HashSet<>();
     target.addAll(lrdChanged);
     lrdChanged.forEach(changed -> {
@@ -228,6 +229,17 @@ public class ILOF {
     target.forEach(toUpdate -> {
       calculateLocalOutlierFactor(toUpdate);
     });
+    if (totalPoints == 500) {
+      System.out.println("last point " + point.toString() + " lof: " + LOFs.get(point));
+    }
+    return new KeyValue<Point, Point>(point, point);
+  }
+
+  public static KeyValue<Point, Point> clearDisposableSets(Point point) {
+    kDistChanged.clear();
+    reachDistChanged.clear();
+    neighCardinalityChanged.clear();
+    lrdChanged.clear();
     return new KeyValue<Point, Point>(point, point);
   }
 
@@ -267,8 +279,8 @@ public class ILOF {
       .map((key, point) -> updateLocalReachDensities(point))
       // update lof
       .map((key, point) -> updateLocalOutlierFactors(point))
-      // clear *changed collections (?)
-      // i need to ascertain whether the same collection is used concurrently at different stages of the pipeline
+      // clear sets that are used for one iteration
+      .map((key, point) -> clearDisposableSets(point))
       // top N aggregation
       // .groupBy((key, point) -> {
       //   //return new KeyValue<Point, Double>(point, LOFs.get(point));
