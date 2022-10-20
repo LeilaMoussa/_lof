@@ -85,7 +85,6 @@ public class ILOF {
   }
 
   public static Point format(String line) {
-    System.out.println("Line: " + line);
     String[] split = line.toLowerCase().split("\\W+");
     Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
     pointStore.put(formatted, formatted);
@@ -94,7 +93,6 @@ public class ILOF {
   }
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point) {
-    System.out.println("dist");
     pointStore.values().forEach((otherPoint) -> {
       final double distance = point.getDistanceTo(otherPoint);
       symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance); // if (distance > 0)
@@ -103,58 +101,49 @@ public class ILOF {
   }
 
   public static KeyValue<Point, Point> querykNN(Point point) {
-    System.out.println("knn");
     // VERY IMPORTANT: how is the stream executed? required to know when to clear neighCardinalityChanged
     // because it changes from one instance of the maintenance phase to another
     // maybe add an operation at the end that clears the data structures that are only used for one iteration
     ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
-      System.out.println("knn 1");
       double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
-      System.out.println("knn 2");
       //if (distance > 0)
       distances.add(new Pair<Point, Double>(otherPoint, distance));
       // update all other kNNs to be able to get RkNN later
-      boolean cardChanged = false;
-      System.out.println("knn 3" + kDistances);
-      if (kDistances.size() > 0 && distance < kDistances.get(otherPoint)) {
-        while (kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
-          kNNs.get(otherPoint).poll();
+      if (kNNs.containsKey(otherPoint) && kDistances.containsKey(otherPoint)) {
+        boolean cardChanged = false;
+        if (distance < kDistances.get(otherPoint)) {
+          while (kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
+            kNNs.get(otherPoint).poll();
+          }
+          kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
+          kDistances.put(otherPoint, distance);
+          kDistChanged.add(otherPoint);
+          cardChanged = true;
+        } else if (distance == kDistances.get(otherPoint)) {
+          kNNs.get(otherPoint).add(new Pair<Point,Double>(point, distance));
+          cardChanged = true;
         }
-        kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
-        kDistances.put(otherPoint, distance);
-        kDistChanged.add(otherPoint);
-        cardChanged = true;
-      } else if (kDistances.size() > 0 && distance == kDistances.get(otherPoint)) {
-        kNNs.get(otherPoint).add(new Pair<Point,Double>(point, distance));
-        cardChanged = true;
-      }
-      if(kNNs.size() > 0) neighborhoodCardinalities.put(otherPoint, kNNs.get(otherPoint).size());
-      if (cardChanged) {
-        neighCardinalityChanged.add(otherPoint);
+        neighborhoodCardinalities.put(otherPoint, kNNs.get(otherPoint).size());
+        if (cardChanged) {
+          neighCardinalityChanged.add(otherPoint);
+        }
       }
     });
-    System.out.println("knn 4");
     distances.sort(new DistanceComparator<>());
-    System.out.println("knn 5" + distances);
     kDistances.put(point, distances.get(Math.min(K-1, distances.size()-1)).getValue1());
-    System.out.println("knn 6");
     int i = K;
     for (; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
-    System.out.println("knn 7");
     PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(new DistanceComparator<>().reversed());
-    System.out.println("knn 8");
     distances.subList(0, Math.min(i, distances.size()-1)).forEach(neighbor -> {
       pq.add(neighbor);
     });
     kNNs.put(point, pq);
     neighborhoodCardinalities.put(point, i);
-    System.out.println("knn 9");
     return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> calculateReachDist(Point point) {
-    System.out.println("rd");
     kNNs.get(point).forEach(neighbor -> {
       // must double check reach dist calculations and usages throughout (didn't swap operands)
       double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0()))));
