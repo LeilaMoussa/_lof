@@ -13,7 +13,7 @@ def gen(infile: str):
 
 if __name__ == '__main__':
     [_, topic_name, source_file, interval_sec] = sys.argv
-    interval = int(interval_sec)
+    interval = float(interval_sec)
     data = gen(source_file)
 
     admin = KafkaAdminClient(bootstrap_servers='localhost:9092')
