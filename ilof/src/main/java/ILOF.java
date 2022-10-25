@@ -53,7 +53,7 @@ public class ILOF {
 
     public double getDistanceTo(Point other) {
       // distance measure should also be configable
-      return Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2);
+      return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
     }
 
     @Override
@@ -90,7 +90,7 @@ public class ILOF {
   }
 
   public static Point format(String line) {
-    String[] split = line.toLowerCase().split("\\W+");
+    String[] split = line.toLowerCase().split(" ");
     Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
     pointStore.put(formatted, formatted);
     totalPoints++;
@@ -230,7 +230,9 @@ public class ILOF {
       calculateLocalOutlierFactor(toUpdate);
     });
     if (totalPoints == 500) {
-      System.out.println("last point " + point.toString() + " lof: " + LOFs.get(point));
+      LOFs.entrySet().forEach(entry -> {
+        System.out.println(entry.getKey() + " : " + entry.getValue());
+      });
     }
     return new KeyValue<Point, Point>(point, point);
   }
