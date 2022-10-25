@@ -97,6 +97,7 @@ public class ILOF {
     // split by some regex; must know input stream encoding
     String[] split = line.toLowerCase().split(" ");
     Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
+    System.out.println(formatted);
     pointStore.put(formatted, formatted);
     totalPoints++;
     return formatted;
@@ -104,8 +105,9 @@ public class ILOF {
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point) {
     pointStore.values().forEach((otherPoint) -> {
+      if (otherPoint.equals(point)) return;
       final double distance = point.getDistanceTo(otherPoint);
-      symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance); // if (distance > 0)
+      symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
     });
     return new KeyValue<Point, Point>(point, point);
   }
@@ -113,6 +115,7 @@ public class ILOF {
   public static KeyValue<Point, Point> querykNN(Point point) {
     ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
+      if (otherPoint.equals(point)) return;
       double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
       //if (distance > 0)
       distances.add(new Pair<Point, Double>(otherPoint, distance));
