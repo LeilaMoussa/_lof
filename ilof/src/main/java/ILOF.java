@@ -1,12 +1,14 @@
-// import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.KStream;
-// import org.apache.kafka.streams.kstream.KTable;
-// import org.apache.kafka.streams.kstream.Materialized;
+import org.apache.kafka.streams.kstream.KTable;
+import org.apache.kafka.streams.kstream.Materialized;
+import org.apache.kafka.streams.kstream.Produced;
+import com.google.common.collect.MinMaxPriorityQueue;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -39,7 +41,8 @@ public class ILOF {
   public static HashSet<Point> neighCardinalityChanged = new HashSet<>();
   public static HashSet<Point> lrdChanged = new HashSet<>();
   public static final int K = 3; // make configable
-
+  public static final int topN = 10; // config
+  public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(new PointComparator<>()).maximumSize(topN).create();
   public static int totalPoints = 0;
 
   public static class Point {
@@ -73,8 +76,9 @@ public class ILOF {
     }
   }
 
-  // consider making this comparator a one-line lambda
-  public static class DistanceComparator<T> implements Comparator<T> {
+  // make this comparator a one-line lambda
+  // this comparator is used for distances and lofs to make max heaps
+  public static class PointComparator<T> implements Comparator<T> {
 
     @Override
     public int compare(Object o1, Object o2) {
@@ -90,6 +94,7 @@ public class ILOF {
   }
 
   public static Point format(String line) {
+    // split by some regex; must know input stream encoding
     String[] split = line.toLowerCase().split(" ");
     Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
     pointStore.put(formatted, formatted);
@@ -132,11 +137,11 @@ public class ILOF {
         }
       }
     });
-    distances.sort(new DistanceComparator<>());
+    distances.sort(new PointComparator<>());
     kDistances.put(point, distances.get(Math.min(K-1, distances.size()-1)).getValue1());
     int i = K;
     for (; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
-    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(new DistanceComparator<>().reversed());
+    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(new PointComparator<>().reversed());
     distances.subList(0, Math.min(i, distances.size()-1)).forEach(neighbor -> {
       pq.add(neighbor);
     });
@@ -150,7 +155,6 @@ public class ILOF {
       // must double check reach dist calculations and usages throughout (didn't swap operands)
       double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0()))));
       Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
-      // this method is also called in the maintain phase
       Double oldRdIfAny = null;
       if (reachDistances.containsKey(pair)) {
         oldRdIfAny = reachDistances.get(pair);
@@ -169,6 +173,7 @@ public class ILOF {
     while (neighbors.hasNext()) {
       rdSum += reachDistances.get(new Pair<Point, Point>(point, neighbors.next().getValue0()));
     }
+    // BUG: Some points have a LOF of Infinity because of this.
     LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
     return new KeyValue<Point, Point>(point, point);
   }
@@ -237,12 +242,25 @@ public class ILOF {
     return new KeyValue<Point, Point>(point, point);
   }
 
-  public static KeyValue<Point, Point> clearDisposableSets(Point point) {
+  public static KeyValue<Point, Double> clearDisposableSets(Point point) {
     kDistChanged.clear();
     reachDistChanged.clear();
     neighCardinalityChanged.clear();
     lrdChanged.clear();
-    return new KeyValue<Point, Point>(point, point);
+    return new KeyValue<Point, Double>(point, LOFs.get(point));
+  }
+
+  public static KeyValue<Point, Double> getTopNOutliers(Point point, Double lof) {
+    // priority queue of fixed size
+    topOutliers.add(new Pair<Point, Double>(point, lof));
+    if (totalPoints == 500) {
+      System.out.println("TOP");
+      while (topOutliers.size() > 0) {
+        Pair<Point, Double> max = topOutliers.poll();
+        System.out.println(max.getValue0() + " : " + max.getValue1());
+      }
+    }
+    return new KeyValue<Point, Double>(point, lof);
   }
 
   public static void main(String[] args) {
@@ -255,81 +273,30 @@ public class ILOF {
       StreamsBuilder builder = new StreamsBuilder();
       KStream<String, String> textLines = builder.stream("mouse-py-topic");
 
-      //final Serde<String> stringSerde = Serdes.String();
+      final Serde<String> stringSerde = Serdes.String();
 
       // INSERT PHASE
-      // format
-      //KStream<Point, Point> topOutliers = 
+      KStream<Point, Double> lofScores = 
       textLines.flatMapValues(textLine -> Arrays.asList(format(textLine)))
-      // sym dists
       .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint))
-      // knn
       .map((key, point) -> querykNN(point))
-      // rd
       .map((key, point) -> calculateReachDist(point))
-      // lrd
       .map((key, point) -> calculateLocalReachDensity(point))
-      // lof
       .map((key, point) -> calculateLocalOutlierFactor(point))
 
       // UPDATE / MAINTAIN PHASE
-      // get RkNN
       .map((key, point) -> queryReversekNN(point))
-      // update rd
       .map((key, point) -> updateReachDists(point))
-      // update lrd
       .map((key, point) -> updateLocalReachDensities(point))
-      // update lof
       .map((key, point) -> updateLocalOutlierFactors(point))
-      // clear sets that are used for one iteration
+      // clear sets that are used for one iteration and return pairs of points and lof scores
       .map((key, point) -> clearDisposableSets(point))
-      // top N aggregation
-      // .groupBy((key, point) -> {
-      //   //return new KeyValue<Point, Double>(point, LOFs.get(point));
-      //   final GenericRecord pointProfile = new GenericData.Record();
-      // },
-      // Grouped.with())
-      // .aggregate(
-      //   // the initializer
-      //   () -> new PriorityQueue<>(new DistanceComparator<>().reversed()), // might want to rename this comparator
-
-      //   // the "add" aggregator
-      //   (point, lofScore, top) -> {
-      //     top.add(new Pair<Point, Double>(point, lofScore));
-      //     return top;
-      //   },
-
-      //   // the "remove" aggregator
-      //   (point, lofScore, top) -> {
-      //     top.remove(new Pair<Point, Double>(point, lofScore));
-      //     return top;
-      //   },
-
-      //   // errs
-      //   Materialized.with(stringSerde, new PriorityQueueSerde<>(new DistanceComparator<>().reversed(), valueAvroSerde)) // just plug in the same confluence and avro deps
-      //   )
+      .map((point, lof) -> getTopNOutliers(point, lof))
       ;
 
+      // forget about outputting/serializing for now
 
-      // final int topN = 10; // configable!
-      // final KTable<String, String> topViewCounts = topOutliers
-      //   .mapValues(queue -> {
-      //     final StringBuilder sb = new StringBuilder();
-      //     for (int i = 0; i < topN; i++) {
-      //       final Pair<Point, Double> record = queue.poll();
-      //       if (record == null) {
-      //         break;
-      //       }
-      //       sb.append(record.getValue0().toString());
-      //       sb.append(" : ");
-      //       sb.append(record.getValue1().toString());
-      //       sb.append("\n");
-      //     }
-      //     return sb.toString();
-      //   });
-
-      // topViewCounts.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
-
+      //topOutliers.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
 
       KafkaStreams streams = new KafkaStreams(builder.build(), props);
       // streams.cleanUp(); // ?
