@@ -42,7 +42,7 @@ public class ILOF {
   public static HashSet<Point> lrdChanged = new HashSet<>();
   public static final int K = 3; // make configable
   public static final int topN = 10; // config
-  public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(new PointComparator<>()).maximumSize(topN).create();
+  public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(new PointComparator<>().reversed()).maximumSize(topN).create();
   public static int totalPoints = 0;
 
   public static class Point {
