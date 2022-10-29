@@ -23,7 +23,7 @@
   - [ ] test with other files
 - [ ] refactor ilof
 - [ ] config
-- [ ] implement memory ceiling for ilof
+- [ ] implement memory ceiling for ilof (EvictingQueue?)
 - [ ] prototype lsh
   - [x] implement lsh using np
   - [x] find lib for lsh
