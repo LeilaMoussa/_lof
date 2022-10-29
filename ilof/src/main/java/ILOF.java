@@ -23,9 +23,7 @@ import java.util.ArrayList;
 import org.javatuples.Pair;
 
 public class ILOF {
-  // unify naming convention here
 
-  // maybe look at EvictingQueue or CircularFifoQueue for mem ceil
   public static HashMap<Point, Point> pointStore = new HashMap<>();
   public static HashMap<Set<Point>, Double> symDistances = new HashMap<>();
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs = new HashMap<>();
@@ -42,7 +40,9 @@ public class ILOF {
   public static HashSet<Point> lrdChanged = new HashSet<>();
   public static final int K = 3; // make configable
   public static final int topN = 10; // config
-  public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(new PointComparator<>().reversed()).maximumSize(topN).create();
+  public static final Comparator<Pair<Point, Double>> comparator =
+      (o1, o2) -> (int) (((Pair<Point, Double>)o1).getValue1() - ((Pair<Point, Double>)o2).getValue1());
+  public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(comparator.reversed()).maximumSize(topN).create();
   public static int totalPoints = 0;
 
   public static class Point {
@@ -55,7 +55,7 @@ public class ILOF {
     }
 
     public double getDistanceTo(Point other) {
-      // distance measure should also be configable
+      // configable
       return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
     }
 
@@ -76,28 +76,11 @@ public class ILOF {
     }
   }
 
-  // make this comparator a one-line lambda
-  // this comparator is used for distances and lofs to make max heaps
-  public static class PointComparator<T> implements Comparator<T> {
-
-    @Override
-    public int compare(Object o1, Object o2) {
-      double d1 = ((Pair<Point, Double>)o1).getValue1();
-      double d2 = ((Pair<Point, Double>)o2).getValue1();
-      if (d1 < d2) {
-        return -1;
-      } else if (d1 > d2) {
-        return 1;
-      }
-      return 0;
-    }
-  }
-
   public static Point format(String line) {
     // split by some regex; must know input stream encoding
     String[] split = line.toLowerCase().split(" ");
     Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
-    System.out.println(formatted);
+    //System.out.println(formatted);
     pointStore.put(formatted, formatted);
     totalPoints++;
     return formatted;
@@ -105,7 +88,7 @@ public class ILOF {
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point) {
     pointStore.values().forEach((otherPoint) -> {
-      if (otherPoint.equals(point)) return;
+      //if (otherPoint.equals(point)) return;
       final double distance = point.getDistanceTo(otherPoint);
       symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
     });
@@ -115,7 +98,7 @@ public class ILOF {
   public static KeyValue<Point, Point> querykNN(Point point) {
     ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
-      if (otherPoint.equals(point)) return;
+      //if (otherPoint.equals(point)) return;
       double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
       //if (distance > 0)
       distances.add(new Pair<Point, Double>(otherPoint, distance));
@@ -123,7 +106,7 @@ public class ILOF {
       if (kNNs.containsKey(otherPoint) && kDistances.containsKey(otherPoint)) {
         boolean cardChanged = false;
         if (distance < kDistances.get(otherPoint)) {
-          while (kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
+          while (kNNs.get(otherPoint).isEmpty() == false && kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
             kNNs.get(otherPoint).poll();
           }
           kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
@@ -140,11 +123,12 @@ public class ILOF {
         }
       }
     });
-    distances.sort(new PointComparator<>());
-    kDistances.put(point, distances.get(Math.min(K-1, distances.size()-1)).getValue1());
+    distances.sort(comparator);
+    double kdist = distances.get(Math.min(K-1, distances.size()-1)).getValue1();
+    kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
     int i = K;
     for (; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
-    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(new PointComparator<>().reversed());
+    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(comparator.reversed());
     distances.subList(0, Math.min(i, distances.size()-1)).forEach(neighbor -> {
       pq.add(neighbor);
     });
@@ -155,7 +139,6 @@ public class ILOF {
 
   public static KeyValue<Point, Point> calculateReachDist(Point point) {
     kNNs.get(point).forEach(neighbor -> {
-      // must double check reach dist calculations and usages throughout (didn't swap operands)
       double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0()))));
       Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
       Double oldRdIfAny = null;
@@ -176,7 +159,6 @@ public class ILOF {
     while (neighbors.hasNext()) {
       rdSum += reachDistances.get(new Pair<Point, Point>(point, neighbors.next().getValue0()));
     }
-    // BUG: Some points have a LOF of Infinity because of this.
     LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
     return new KeyValue<Point, Point>(point, point);
   }
@@ -276,7 +258,7 @@ public class ILOF {
       StreamsBuilder builder = new StreamsBuilder();
       KStream<String, String> textLines = builder.stream("mouse-py-topic");
 
-      final Serde<String> stringSerde = Serdes.String();
+      //final Serde<String> stringSerde = Serdes.String();
 
       // INSERT PHASE
       KStream<Point, Double> lofScores = 
