@@ -46,7 +46,11 @@ public class Driver {
     final String algorithm = dotenv.get("ALGORITHM");
     switch (algorithm) {
         case "ILOF":
-            //
+            ILOF.detectOutliers(data, Integer.parseInt(dotenv.get("k")),
+                                    Integer.parseInt(dotenv.get("topN")),
+                                    Double.parseDouble(dotenv.get("LOF_THRESHOLD")),
+                                    dotenv.get("DISTANCE_MEASURE"));
+            //data.foreach(ILOF.process());
             break;
         case "RLOF":
             //

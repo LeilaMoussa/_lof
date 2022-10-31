@@ -3,3 +3,4 @@
 **/*.lst
 **/*.jar
 .vscode
+**/target/

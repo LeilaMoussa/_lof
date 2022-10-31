@@ -35,6 +35,10 @@
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
     </dependency>
+    <dependency>
+        <groupId>capstone</groupId>
+        <artifactId>common</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

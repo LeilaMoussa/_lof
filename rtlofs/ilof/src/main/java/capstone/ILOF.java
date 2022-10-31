@@ -40,58 +40,27 @@ public class ILOF {
   public static HashSet<Point> reachDistChanged = new HashSet<>();
   public static HashSet<Point> neighCardinalityChanged = new HashSet<>();
   public static HashSet<Point> lrdChanged = new HashSet<>();
-  public static final int K = 3; // make configable
-  public static final int topN = 10; // config
+  public static int K = 3;
+  public static int topN = 10; // TODO: how could ILOF be called?
   public static final Comparator<Pair<Point, Double>> comparator =
       (o1, o2) -> (int) (((Pair<Point, Double>)o1).getValue1() - ((Pair<Point, Double>)o2).getValue1());
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(comparator.reversed()).maximumSize(topN).create();
   public static int totalPoints = 0;
 
-  public static class Point {
-    double x;
-    double y;
+  // public static Point format(String line) {
+  //   // split by some regex; must know input stream encoding
+  //   String[] split = line.toLowerCase().split(" ");
+  //   Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
+  //   //System.out.println(formatted);
+  //   pointStore.put(formatted, formatted);
+  //   totalPoints++;
+  //   return formatted;
+  // }
 
-    Point(double x, double y) {
-      this.x = x;
-      this.y = y;
-    }
-
-    public double getDistanceTo(Point other) {
-      // configable
-      return Math.sqrt(Math.pow(this.x - other.x, 2) + Math.pow(this.y - other.y, 2));
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      return other != null && other instanceof Point &&
-          ((Point) other).x == this.x && ((Point) other).y == this.y;
-    }
-
-    @Override
-    public int hashCode() {
-      return (new Double(this.x).toString() + new Double(this.y).toString()).hashCode();
-    }
-
-    @Override
-    public String toString() {
-      return this.x + " " + this.y;
-    }
-  }
-
-  public static Point format(String line) {
-    // split by some regex; must know input stream encoding
-    String[] split = line.toLowerCase().split(" ");
-    Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
-    //System.out.println(formatted);
-    pointStore.put(formatted, formatted);
-    totalPoints++;
-    return formatted;
-  }
-
-  public static KeyValue<Point, Point> calculateSymmetricDistances(Point point) {
+  public static KeyValue<Point, Point> calculateSymmetricDistances(Point point, String distanceMeasure) {
     pointStore.values().forEach((otherPoint) -> {
       //if (otherPoint.equals(point)) return;
-      final double distance = point.getDistanceTo(otherPoint);
+      final double distance = point.getDistanceTo(otherPoint, distanceMeasure);
       symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
     });
     return new KeyValue<Point, Point>(point, point);
@@ -251,51 +220,23 @@ public class ILOF {
   }
 
   public static void main(String[] args) {
-      Properties props = new Properties();
-      props.put(StreamsConfig.APPLICATION_ID_CONFIG, "ilof-application");
-      props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
-      props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-      props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-
-      StreamsBuilder builder = new StreamsBuilder();
-      KStream<String, String> textLines = builder.stream("mouse-py-topic");
-
-      final Serde<String> stringSerde = Serdes.String();
-
-      // INSERT PHASE
-      KStream<Point, Double> lofScores = 
-      textLines.flatMapValues(textLine -> Arrays.asList(format(textLine)))
-      // TODO: refactor following statements.
-      .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint))
-      .map((key, point) -> querykNN(point))
-      .map((key, point) -> calculateReachDist(point))
-      .map((key, point) -> calculateLocalReachDensity(point))
-      .map((key, point) -> calculateLocalOutlierFactor(point))
-
-      // UPDATE / MAINTAIN PHASE
-      .map((key, point) -> queryReversekNN(point))
-      .map((key, point) -> updateReachDists(point))
-      .map((key, point) -> updateLocalReachDensities(point))
-      .map((key, point) -> updateLocalOutlierFactors(point))
-      // clear sets that are used for one iteration and return pairs of points and rtlofs scores
-      .map((key, point) -> clearDisposableSets(point))
-      .map((point, rtlofs) -> getTopNOutliers(point, rtlofs))
-      ;
-
-      // forget about outputting/serializing for now
-
-      //topOutliers.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
-
-      // KafkaStreams streams = new KafkaStreams(builder.build(), props);
-      // // streams.cleanUp(); // ?
-      // streams.start();
+    // TODO: decide whether to keep mains in specific algorithms' classes.
   }
 
   // TODO: pass all needed parameters to this function.
-  public static void detectOutliers(KStream<String, Point> data) {
+  public static void detectOutliers(KStream<String, Point> data, int k, Integer topNOutliers, Double lofThresh, String distanceMeasure) {
+    K = k;
+    // Only one of these two should be non-null.
+    if (topNOutliers != null) {
+      topN = topNOutliers;
+    }
+    if (lofThresh != null) {
+      // TODO: use this first in code.
+    }
+
     KStream<Point, Double> lofScores = 
       data
-      .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint))
+      .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint, distanceMeasure))
       .map((key, point) -> querykNN(point))
       .map((key, point) -> calculateReachDist(point))
       .map((key, point) -> calculateLocalReachDensity(point))
@@ -310,6 +251,14 @@ public class ILOF {
       ;
 
     // TODO: sink topOutliers into topic.
+
+    //final Serde<String> stringSerde = Serdes.String();
+    //topOutliers.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
+  }
+
+  public static KeyValue<String, Point> process(KeyValue<String, Point> point, int k, Integer topNOutliers, Double lofThresh, String distanceMeasure) {
+
+    return point;
   }
     
 }
