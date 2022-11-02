@@ -1,9 +1,13 @@
 package capstone;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.PriorityQueue;
+import com.google.common.collect.MinMaxPriorityQueue;
 
 import org.apache.kafka.streams.kstream.KStream;
+import org.javatuples.Pair;
 import org.javatuples.Triplet;
 
 public class RLOF {
@@ -14,12 +18,7 @@ public class RLOF {
     public static HashMap<Point, Double> vpRds = new HashMap<>();
     public static HashMap<Point, Double> vpLrds = new HashMap<>();
 
-    // if vps exist, decide whether to insert new point
-    // if insert, pass to ilof
-    // ilof outputs a topic of outliers
-    // add to window
-    // if window size is max, summarize
-    // age-based deletion: see streams tumbling window!
+    public static HashSet<Point> window = new HashSet<>(); // TODO: map or set? TODO: decide how to share window with ILOF
 
     public static Triplet<Point, Double, Integer> findBlackholeIfAny(Point point) {
         Triplet<Point, Double, Integer> found = null;
@@ -33,26 +32,68 @@ public class RLOF {
     }
 
     public static void summarize() {
-        // get all points in window along with their lofs
-        // sort asc
-        // for each point in x%
-        // C = point
-        // get its kdist, R = kdist
-        // get knn
-        // N = size of knn + 1
-        // get their average kdist, rd, lrd
-        // put these averages in maps
-        // delete them from window along with point
-        // add (C, R, N) to blackHoles
+        // TODO: do the following in some setup function and have these be global
+        final int w = Integer.parseInt(dotenv.get("WINDOW"));
+        final int perc = Integer.parseInt(dotenv.get("INLIER_PERCENTAGE"));
+        final int numberTopInliers = (int)(w * perc / 100);
+        MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
+                                                            .orderedBy(PointComparator.comparator().reversed())
+                                                            .maximumSize(numberTopInliers)
+                                                            .create();
+        for (Point point : window) {
+            sorted.add(new Pair<Point, Double>(point, LOFs.get(point))); // TODO: decide on how LOFs etc. are shared
+        }
+        HashSet<Point> toDelete = new HashSet<>();
+        for (Pair<Point,Double> inlier : sorted) {
+            Point center = inlier.getValue0();
+            toDelete.add(center);
+            double radius = kDists.get(center); // TODO same here
+            HashSet<Point> neighbors = kNNs.get(center); // TODO: probably not hashset<point>
+            toDelete.addAll(neighbors);
+            int number = neighbors.size() + 1;
+            blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
+            double avgKdist, avgRd, avgLrd;
+            for (Point neighbor : neighbors) {
+                avgKdist += kDists.get(neighbor);
+                avgRd += rds.get(neighbor);
+                avgLrd += lrds.get(neighbor); // TODO
+            }
+            // TODO make sure size in non zero, which should always be the case as this is an inlier
+            avgKdist /= neighbors.size();
+            avgRd /= neighbors.size();
+            avgLrd /= neighbors.size();
+
+            vpKdists.put(center, avgKdist);
+            vpRds.put(center, avgRd);
+            vpLrds.put(center, avgLrd);
+        }
+
+        window.removeAll(toDelete);
+
     }
 
-    public static void updateVps() {
-
+    public static void updateVps(Triplet<Point, Double, Integer> blackHole, Point point) {
+        Point center = blackHole.getValue0();
+        int number = blackHole.getValue2();
+        double newAvgKdist = (vpKdists.get(center) * number + kDists.get(point)) / (number + 1); // TODO
+        double newAvgRd = (vpRds.get(center) * number + rds.get(point)) / (number + 1); // TODO
+        double newAvgLrd = (vpLrds.get(center) * number + lrds.get(point)) / (number + 1); // TODO
+        vpKdists.put(center, newAvgKdist);
+        vpRds.put(center, newAvgRd);
+        vpLrds.put(center, newAvgLrd);
     }
 
+    // TODO: honestly, just pass dotenv
     public static void detectOutliers(KStream<String, Point> data, int k, Integer topNOutliers, Double lofThresh, String distanceMeasure) {
         // when calling ilof, remember that ilof needs to know about the virtual points too
         // it would be pretty great to start using state stores right now, to avoid dealing with this much global state
+
+        // if vps exist, decide whether to insert new point
+        // if insert, pass to ilof
+        // ilof outputs a topic of outliers
+        // add to window
+        // if window size is max, summarize
+        // age-based deletion: see streams tumbling window!
     }
     
 }

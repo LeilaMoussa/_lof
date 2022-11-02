@@ -42,20 +42,9 @@ public class ILOF {
   public static HashSet<Point> lrdChanged = new HashSet<>();
   public static int K = 3;
   public static int topN = 10; // TODO: how could ILOF be called?
-  public static final Comparator<Pair<Point, Double>> comparator =
-      (o1, o2) -> (int) (((Pair<Point, Double>)o1).getValue1() - ((Pair<Point, Double>)o2).getValue1());
-  public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(comparator.reversed()).maximumSize(topN).create();
+  
+  public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(topN).create();
   public static int totalPoints = 0;
-
-  // public static Point format(String line) {
-  //   // split by some regex; must know input stream encoding
-  //   String[] split = line.toLowerCase().split(" ");
-  //   Point formatted = new Point(Double.parseDouble(split[0]), Double.parseDouble(split[1]));
-  //   //System.out.println(formatted);
-  //   pointStore.put(formatted, formatted);
-  //   totalPoints++;
-  //   return formatted;
-  // }
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point, String distanceMeasure) {
     pointStore.values().forEach((otherPoint) -> {

@@ -71,5 +71,7 @@ public class Driver {
     KafkaStreams streams = new KafkaStreams(builder.build(), props);
     // streams.cleanUp(); // ?
     streams.start();
+
+    Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 }
