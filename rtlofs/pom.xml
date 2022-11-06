@@ -39,14 +39,19 @@
         <version>3.2.1</version>
       </dependency>
       <dependency>  
-          <groupId>org.javatuples</groupId>
-          <artifactId>javatuples</artifactId>
-          <version>1.2</version>  
+        <groupId>org.javatuples</groupId>
+        <artifactId>javatuples</artifactId>
+        <version>1.2</version>  
       </dependency>
       <dependency>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-          <version>31.1-jre</version>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>31.1-jre</version>
+      </dependency>
+      <dependency>
+        <groupId>io.github.cdimascio</groupId>
+        <artifactId>dotenv-java</artifactId>
+        <version>2.2.4</version>
       </dependency>
       <dependency>
         <groupId>capstone</groupId>
@@ -107,6 +112,7 @@
       </plugins>
     </pluginManagement>
   </build>
+  
   <modules>
     <module>common</module>
     <module>driver</module>

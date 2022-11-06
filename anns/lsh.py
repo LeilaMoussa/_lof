@@ -93,21 +93,6 @@ def actual_search_kNN(dataset: List[Tuple[float]], k: int) -> dict:
         knns[i] = set([dist[0][1] for dist in distances[:k]]) # again, do i consider other points with kdist?
     return knns
 
-def calculate_accuracy(approx_kNNs: dict, actual_kNNs: dict, n: int) -> dict:
-    # calculate FPR and DR (?)
-    fp_tp_fn = defaultdict(tuple)
-    for i in range(n):
-        fp_tp_fn[i] = (
-            # BAD
-            # fpr = points in approx that aren't in actual
-            len(approx_kNNs[i].difference(actual_kNNs[i])),
-            # dr = intersection
-            len(approx_kNNs[i].intersection(actual_kNNs[i])),
-            # fnr = points in actual but not in approx
-            len(actual_kNNs[i].difference(approx_kNNs[i]))
-        )
-    return fp_tp_fn
-
 def scratch_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple: # type
     n = len(dataset)
     tic = time.perf_counter()
@@ -118,8 +103,7 @@ def scratch_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple: # ty
     approx_kNNs = search_kNN(hashtable, hashes, k)
     toc = time.perf_counter()
     elapsed = toc - tic
-    fp_tp_fn = calculate_accuracy(approx_kNNs, actual_kNNs, n)
-    return elapsed, fp_tp_fn
+    return elapsed
 
 def np_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
     # almost copy paste from pinecone
@@ -140,8 +124,7 @@ def np_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
     approx_kNNs = search_kNN(buckets, hashes, k)
     toc = time.perf_counter()
     elapsed = toc - tic
-    fp_tp_fn = calculate_accuracy(approx_kNNs, actual_kNNs, (len(dataset)))
-    return elapsed, fp_tp_fn
+    return elapsed
 
 def lib_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
     index = faiss.IndexLSH(2, L)
@@ -163,13 +146,9 @@ if __name__ == '__main__':
     [_, L, k, infile] = sys.argv
     dataset = read_data(infile)
     actual_kNNs = actual_search_kNN(dataset, int(k))
-    elapsed, fp_tp_fn = scratch_lsh(int(L), int(k), dataset, actual_kNNs)
-    print("--SCRATCH--")
-    display(elapsed, fp_tp_fn)
-    elapsed, fp_tp_fn = np_lsh(int(L), int(k), dataset, actual_kNNs)
-    print("--NP--")
-    display(elapsed, fp_tp_fn)
-    sys.exit(0)
-    elapsed, fp_tp_fn = lib_lsh(int(L), int(k), dataset, actual_kNNs)
-    print("--LIB--")
-    display(elapsed, fp_tp_fn)
+    elapsed = scratch_lsh(int(L), int(k), dataset, actual_kNNs)
+    print(elapsed)
+    elapsed = np_lsh(int(L), int(k), dataset, actual_kNNs)
+    print(elapsed)
+    # elapsed = lib_lsh(int(L), int(k), dataset, actual_kNNs)
+    # print(elapsed)

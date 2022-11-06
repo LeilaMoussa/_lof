@@ -1,4 +1,4 @@
-package capstone;
+/* package capstone;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -88,12 +88,25 @@ public class RLOF {
         // when calling ilof, remember that ilof needs to know about the virtual points too
         // it would be pretty great to start using state stores right now, to avoid dealing with this much global state
 
-        // if vps exist, decide whether to insert new point
-        // if insert, pass to ilof
-        // ilof outputs a topic of outliers
-        // add to window
-        // if window size is max, summarize
-        // age-based deletion: see streams tumbling window!
+        // TODO: for age-based deletion, see streams tumbling window!
+
+        // the following will change
+        data
+        .mapValues((key, point) -> findBlackholeIfAny(point))
+        .mapValues((key, triplet) -> {
+            if (triplet == null) {
+                // add to window, pass to ilof
+            } else {
+                // from point's lrd, update triplet
+            }
+            return window.size();
+        })
+        .mapValues((windowSize) -> {
+            if (windowSize >= Integer.parseInt(config.get("WINDOW"))) {
+                summarize();
+            }
+        });
     }
     
 }
+ */
