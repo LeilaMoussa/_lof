@@ -51,16 +51,25 @@ public class ILOF {
   public static int totalPoints;
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point, String distanceMeasure) {
-    pointStore.values().forEach((otherPoint) -> {
-      //if (otherPoint.equals(point)) return;
-      final double distance = point.getDistanceTo(otherPoint, distanceMeasure);
-      symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
-    });
-    return new KeyValue<Point, Point>(point, point);
+    try {
+      System.out.println(point);
+      pointStore.put(point, point);
+      pointStore.values().forEach((otherPoint) -> {
+        //if (otherPoint.equals(point)) return;
+        final double distance = point.getDistanceTo(otherPoint, distanceMeasure);
+        symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
+      });
+      return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("1" + e);
+    }
+    return null;
   }
 
   public static KeyValue<Point, Point> querykNN(Point point) {
-    ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
+
+    try {
+      ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
     pointStore.values().forEach(otherPoint -> {
       //if (otherPoint.equals(point)) return;
       double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
@@ -99,46 +108,73 @@ public class ILOF {
     kNNs.put(point, pq);
     neighborhoodCardinalities.put(point, i);
     return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("2" + e);
+    }
+
+
+    return null;
   }
 
   public static KeyValue<Point, Point> calculateReachDist(Point point) {
-    kNNs.get(point).forEach(neighbor -> {
-      double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0()))));
-      Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
-      Double oldRdIfAny = null;
-      if (reachDistances.containsKey(pair)) {
-        oldRdIfAny = reachDistances.get(pair);
-      }
-      reachDistances.put(pair, reachDist);
-      if (oldRdIfAny != null && oldRdIfAny != reachDist) {
-        reachDistChanged.add(point);
-      }
-    });
-    return new KeyValue<Point, Point>(point, point);
+
+    try {
+      kNNs.get(point).forEach(neighbor -> {
+        double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0()))));
+        Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
+        Double oldRdIfAny = null;
+        if (reachDistances.containsKey(pair)) {
+          oldRdIfAny = reachDistances.get(pair);
+        }
+        reachDistances.put(pair, reachDist);
+        if (oldRdIfAny != null && oldRdIfAny != reachDist) {
+          reachDistChanged.add(point);
+        }
+      });
+      return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("3" + e);
+    }
+
+
+    return null;
   }
 
   public static KeyValue<Point, Point> calculateLocalReachDensity(Point point) {
-    double rdSum = 0;
+    try {
+      double rdSum = 0;
     Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
     while (neighbors.hasNext()) {
       rdSum += reachDistances.get(new Pair<Point, Point>(point, neighbors.next().getValue0()));
     }
     LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
     return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("4" + e);
+    }
+
+    return null;
   }
 
   public static KeyValue<Point, Point> calculateLocalOutlierFactor(Point point) {
-    double lrdSum = 0;
+    try {
+      double lrdSum = 0;
     Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
     while (neighbors.hasNext()) {
       lrdSum += LRDs.get(neighbors.next().getValue0());
     }
     LOFs.put(point, lrdSum / (LRDs.get(point) * neighborhoodCardinalities.get(point)));
     return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("5" + e);
+    }
+
+    return null;
   }
 
   public static KeyValue<Point, Point> queryReversekNN(Point point) {
-    HashSet<Point> rknns = new HashSet<>();
+    try {
+      HashSet<Point> rknns = new HashSet<>();
     pointStore.values().forEach(otherPoint -> {
       double dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
       if (kNNs.get(otherPoint).contains(new Pair<Point, Double>(point, dist))) {
@@ -147,19 +183,31 @@ public class ILOF {
     });
     RkNNs.put(point, rknns);
     return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("6" + e);
+    }
+
+    return null;
   }
 
   public static KeyValue<Point, Point> updateReachDists(Point point) {
-    kDistChanged.forEach(somePoint -> {
-      kNNs.get(somePoint).forEach(neighbor -> {
-        calculateReachDist(neighbor.getValue0());
+    try {
+      kDistChanged.forEach(somePoint -> {
+        kNNs.get(somePoint).forEach(neighbor -> {
+          calculateReachDist(neighbor.getValue0());
+        });
       });
-    });
-    return new KeyValue<Point, Point>(point, point);
+      return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("7" + e);
+    }
+
+    return null;
   }
 
   public static KeyValue<Point, Point> updateLocalReachDensities(Point point) {
-    HashSet<Point> target = new HashSet<>();
+    try {
+      HashSet<Point> target = new HashSet<>();
     target.addAll(neighCardinalityChanged);
     reachDistChanged.forEach(rdChanged -> {
       target.addAll(RkNNs.get(rdChanged));
@@ -172,10 +220,16 @@ public class ILOF {
       }
     });
     return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("8" + e);
+    }
+
+    return null;
   }
 
   public static KeyValue<Point, Point> updateLocalOutlierFactors(Point point) {
-    HashSet<Point> target = new HashSet<>();
+    try {
+      HashSet<Point> target = new HashSet<>();
     target.addAll(lrdChanged);
     lrdChanged.forEach(changed -> {
       target.addAll(RkNNs.get(changed));
@@ -184,10 +238,16 @@ public class ILOF {
       calculateLocalOutlierFactor(toUpdate);
     });
     return new KeyValue<Point, Point>(point, point);
+    } catch (Exception e) {
+      System.out.println("9" + e);
+    }
+
+    return null;
   }
 
   public static KeyValue<Point, Double> clearDisposableSetsAndReturnCurrentScore(Point point) {
-    kDistChanged.clear();
+    try {
+      kDistChanged.clear();
     reachDistChanged.clear();
     neighCardinalityChanged.clear();
     lrdChanged.clear();
@@ -195,10 +255,16 @@ public class ILOF {
     // therefore, must ensure that only the most recent value for this key is taken into consideration
     // good use case for KTables?
     return new KeyValue<Point, Double>(point, LOFs.get(point));
+    } catch (Exception e) {
+      System.out.println("10" + e);
+    }
+
+    return null;
   }
 
   public static KeyValue<Point, Double> getTopNOutliers(Point point, Double lof) {
-    // add to max heap of fixed size
+    try {
+      // add to max heap of fixed size
     topOutliers.add(new Pair<Point, Double>(point, lof));
     if (totalPoints == 500) {
       System.out.println("TOP OUTLIERS");
@@ -208,6 +274,11 @@ public class ILOF {
       }
     }
     return new KeyValue<Point, Double>(point, lof);
+    } catch (Exception e) {
+      System.out.println("11" + e);
+    }
+
+    return null;
   }
 
   public static void main(String[] args) {
@@ -240,7 +311,9 @@ public class ILOF {
     setup(config);
     KStream<Point, Double> lofScores = 
       data
-      .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint, config.get("DISTANCE_MEASURE")))
+      .map((key, formattedPoint) -> calculateSymmetricDistances(formattedPoint, 
+                                      Optional.ofNullable(config.get("DISTANCE_MEASURE"))
+                                      .orElse("EUCLIDEAN")))
       .map((key, point) -> querykNN(point))
       .map((key, point) -> calculateReachDist(point))
       .map((key, point) -> calculateLocalReachDensity(point))
@@ -285,7 +358,7 @@ public class ILOF {
       .map((key, point) -> updateLocalOutlierFactors(point))
       .map((key, point) -> clearDisposableSetsAndReturnCurrentScore(point));
 
-    return lofScores;
+      return lofScores;
   }
     
 }
