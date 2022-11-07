@@ -127,12 +127,14 @@ def np_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
     return elapsed
 
 def lib_lsh(L: int, k: int, dataset: list, actual_kNNs: dict) -> tuple:
-    index = faiss.IndexLSH(2, L)
-    index.add(dataset)  # must check data format is good
+    # index = faiss.IndexLSH(2, L)
+    # must check data format is good
+    # index.add(dataset)
     # must do this for all points (or all xq) in dataset
     # xq0 = xq[0].reshape(1, d)  # what's 1?
     # we use the search method to find the k nearest vectors
     # D, I = index.search(xq0, k)
+    pass
 
 
 def display(elapsed: float, fp_tp_fn: dict):

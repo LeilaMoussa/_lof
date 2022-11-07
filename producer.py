@@ -6,7 +6,7 @@ import time, sys
 def gen(infile: str):
     with open(infile) as f:
         #yield f.readline()
-        # temporary! don't read the whole file at once!
+        # TODO: read line by line
         data = f.read()
         data = data.split('\n')
         return data

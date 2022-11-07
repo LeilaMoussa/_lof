@@ -12,7 +12,7 @@
 
 - [ ] debug ILOF (might require a refactor)
 - [ ] write results to sink file
-- [ ] write script to test sink file against expected results and generate ROC curve
+- [ ] finish and test roc.py
 - [ ] call ilof from rlof
 - [ ] finish rlof (note: EvictingQueue, TarsosLSH)
 - [ ] generate ROC curve for RLOF
