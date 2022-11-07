@@ -14,7 +14,6 @@ import org.apache.kafka.streams.kstream.Printed;
 import com.google.common.collect.MinMaxPriorityQueue;
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -51,73 +50,67 @@ public class ILOF {
   public static int totalPoints;
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point, String distanceMeasure) {
+    System.out.println("start of " + point + " with total points " + totalPoints);
     try {
       System.out.println(point);
       pointStore.put(point, point);
+      totalPoints += 1;
       pointStore.values().forEach((otherPoint) -> {
-        //if (otherPoint.equals(point)) return;
         final double distance = point.getDistanceTo(otherPoint, distanceMeasure);
         symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
       });
-      return new KeyValue<Point, Point>(point, point);
     } catch (Exception e) {
       System.out.println("1" + e);
     }
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> querykNN(Point point) {
-
     try {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
-    pointStore.values().forEach(otherPoint -> {
-      //if (otherPoint.equals(point)) return;
-      double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
-      //if (distance > 0)
-      distances.add(new Pair<Point, Double>(otherPoint, distance));
-      // update all other kNNs to be able to get RkNN later
-      if (kNNs.containsKey(otherPoint) && kDistances.containsKey(otherPoint)) {
-        boolean cardChanged = false;
-        if (distance < kDistances.get(otherPoint)) {
-          while (kNNs.get(otherPoint).isEmpty() == false && kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
-            kNNs.get(otherPoint).poll();
+      pointStore.values().forEach(otherPoint -> {
+        double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
+        distances.add(new Pair<Point, Double>(otherPoint, distance));
+        // update kNNs of past points to be able to get correct RkNN later
+        if (kNNs.containsKey(otherPoint) && kDistances.containsKey(otherPoint)) {
+          boolean cardChanged = false;
+          if (distance < kDistances.get(otherPoint)) {
+            while (kNNs.get(otherPoint).isEmpty() == false && kNNs.get(otherPoint).peek().getValue1() == kDistances.get(otherPoint)) {
+              kNNs.get(otherPoint).poll();
+            }
+            kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
+            kDistances.put(otherPoint, distance);
+            kDistChanged.add(otherPoint);
+            cardChanged = true;
+          } else if (distance == kDistances.get(otherPoint)) {
+            kNNs.get(otherPoint).add(new Pair<Point,Double>(point, distance));
+            cardChanged = true;
           }
-          kNNs.get(otherPoint).add(new Pair<Point, Double>(point, distance));
-          kDistances.put(otherPoint, distance);
-          kDistChanged.add(otherPoint);
-          cardChanged = true;
-        } else if (distance == kDistances.get(otherPoint)) {
-          kNNs.get(otherPoint).add(new Pair<Point,Double>(point, distance));
-          cardChanged = true;
+          neighborhoodCardinalities.put(otherPoint, kNNs.get(otherPoint).size());
+          if (cardChanged) {
+            neighCardinalityChanged.add(otherPoint);
+          }
         }
-        neighborhoodCardinalities.put(otherPoint, kNNs.get(otherPoint).size());
-        if (cardChanged) {
-          neighCardinalityChanged.add(otherPoint);
-        }
-      }
-    });
-    distances.sort(PointComparator.comparator());
-    double kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1();
-    kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
-    int i = k;
-    for (; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
-    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
-    distances.subList(0, Math.min(i, distances.size()-1)).forEach(neighbor -> {
-      pq.add(neighbor);
-    });
-    kNNs.put(point, pq);
-    neighborhoodCardinalities.put(point, i);
-    return new KeyValue<Point, Point>(point, point);
+      });
+      distances.sort(PointComparator.comparator());
+      double kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1(); // maybe k, not k-1, because self is there
+      kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
+      int i = k;
+      for (; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
+      PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
+      distances.subList(0, Math.min(i, distances.size()-1)).forEach(neighbor -> {
+        if (neighbor.getValue0().equals(point)) return;
+        pq.add(neighbor);
+      });
+      kNNs.put(point, pq);
+      neighborhoodCardinalities.put(point, pq.size());
     } catch (Exception e) {
       System.out.println("2" + e);
     }
-
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> calculateReachDist(Point point) {
-
     try {
       kNNs.get(point).forEach(neighbor -> {
         double reachDist = Math.max(kDistances.get(neighbor.getValue0()), symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor.getValue0()))));
@@ -131,63 +124,58 @@ public class ILOF {
           reachDistChanged.add(point);
         }
       });
-      return new KeyValue<Point, Point>(point, point);
     } catch (Exception e) {
       System.out.println("3" + e);
     }
-
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> calculateLocalReachDensity(Point point) {
     try {
       double rdSum = 0;
-    Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
-    while (neighbors.hasNext()) {
-      rdSum += reachDistances.get(new Pair<Point, Point>(point, neighbors.next().getValue0()));
-    }
-    LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
-    return new KeyValue<Point, Point>(point, point);
+      Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
+      while (neighbors.hasNext()) {
+        Pair<Point, Point> pair = new Pair<Point, Point>(point, neighbors.next().getValue0());
+        rdSum += reachDistances.get(pair); // null exception here because kNN(point) is non empty while rd(point) hasn't been created
+        // this is bad because it means iterations may be executed in parallel
+        // if this is really the case, i might need to change this entire code and write the whole stream into a hashset at once
+        // then just iterate over that set, to make sure each point's processing runs end to end before the next point
+      }
+      LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
     } catch (Exception e) {
-      System.out.println("4" + e);
+      System.out.println("4 " + e + " point " + point);
     }
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> calculateLocalOutlierFactor(Point point) {
     try {
       double lrdSum = 0;
-    Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
-    while (neighbors.hasNext()) {
-      lrdSum += LRDs.get(neighbors.next().getValue0());
-    }
-    LOFs.put(point, lrdSum / (LRDs.get(point) * neighborhoodCardinalities.get(point)));
-    return new KeyValue<Point, Point>(point, point);
+      Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
+      while (neighbors.hasNext()) {
+        lrdSum += LRDs.get(neighbors.next().getValue0());
+      }
+      LOFs.put(point, lrdSum / (LRDs.get(point) * neighborhoodCardinalities.get(point)));
     } catch (Exception e) {
       System.out.println("5" + e);
     }
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> queryReversekNN(Point point) {
     try {
       HashSet<Point> rknns = new HashSet<>();
-    pointStore.values().forEach(otherPoint -> {
-      double dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
-      if (kNNs.get(otherPoint).contains(new Pair<Point, Double>(point, dist))) {
-        rknns.add(otherPoint);
-      }
-    });
-    RkNNs.put(point, rknns);
-    return new KeyValue<Point, Point>(point, point);
+      pointStore.values().forEach(otherPoint -> {
+        double dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
+        if (kNNs.get(otherPoint).contains(new Pair<Point, Double>(point, dist))) {
+          rknns.add(otherPoint);
+        }
+      });
+      RkNNs.put(point, rknns);
     } catch (Exception e) {
       System.out.println("6" + e);
     }
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> updateReachDists(Point point) {
@@ -197,92 +185,99 @@ public class ILOF {
           calculateReachDist(neighbor.getValue0());
         });
       });
-      return new KeyValue<Point, Point>(point, point);
     } catch (Exception e) {
       System.out.println("7" + e);
     }
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> updateLocalReachDensities(Point point) {
     try {
       HashSet<Point> target = new HashSet<>();
-    target.addAll(neighCardinalityChanged);
-    reachDistChanged.forEach(rdChanged -> {
-      target.addAll(RkNNs.get(rdChanged));
-    });
-    target.forEach(toUpdate -> {
-      double oldLrd = LRDs.get(toUpdate);
-      calculateLocalReachDensity(toUpdate);
-      if (oldLrd != LRDs.get(toUpdate)) {
-        lrdChanged.add(toUpdate);
-      }
-    });
-    return new KeyValue<Point, Point>(point, point);
+      target.addAll(neighCardinalityChanged);
+      reachDistChanged.forEach(rdChanged -> {
+        target.addAll(RkNNs.get(rdChanged));
+      });
+      target.forEach(toUpdate -> {
+        double oldLrd = LRDs.get(toUpdate);
+        calculateLocalReachDensity(toUpdate);
+        if (oldLrd != LRDs.get(toUpdate)) {
+          lrdChanged.add(toUpdate);
+        }
+      });
     } catch (Exception e) {
       System.out.println("8" + e);
     }
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> updateLocalOutlierFactors(Point point) {
     try {
       HashSet<Point> target = new HashSet<>();
-    target.addAll(lrdChanged);
-    lrdChanged.forEach(changed -> {
-      target.addAll(RkNNs.get(changed));
-    });
-    target.forEach(toUpdate -> {
-      calculateLocalOutlierFactor(toUpdate);
-    });
-    return new KeyValue<Point, Point>(point, point);
+      target.addAll(lrdChanged);
+      lrdChanged.forEach(changed -> {
+        target.addAll(RkNNs.get(changed));
+      });
+      target.forEach(toUpdate -> {
+        calculateLocalOutlierFactor(toUpdate);
+      });
     } catch (Exception e) {
       System.out.println("9" + e);
     }
-
-    return null;
+    return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Double> clearDisposableSetsAndReturnCurrentScore(Point point) {
     try {
       kDistChanged.clear();
-    reachDistChanged.clear();
-    neighCardinalityChanged.clear();
-    lrdChanged.clear();
-    // this happens on each iteration, so this LOF is only correct at that point in time
-    // therefore, must ensure that only the most recent value for this key is taken into consideration
-    // good use case for KTables?
-    return new KeyValue<Point, Double>(point, LOFs.get(point));
+      reachDistChanged.clear();
+      neighCardinalityChanged.clear();
+      lrdChanged.clear();
+      System.out.println("end of " + point + " with total points " + totalPoints);
     } catch (Exception e) {
       System.out.println("10" + e);
     }
-
-    return null;
+    return new KeyValue<Point, Double>(point, LOFs.get(point));
   }
 
   public static KeyValue<Point, Double> getTopNOutliers(Point point, Double lof) {
     try {
       // add to max heap of fixed size
-    topOutliers.add(new Pair<Point, Double>(point, lof));
-    if (totalPoints == 500) {
-      System.out.println("TOP OUTLIERS");
-      while (topOutliers.size() > 0) {
-        Pair<Point, Double> max = topOutliers.poll();
-        System.out.println(max.getValue0() + " : " + max.getValue1());
+      topOutliers.add(new Pair<Point, Double>(point, lof));
+      if (totalPoints == 500) {
+        System.out.println("TOP OUTLIERS");
+        while (topOutliers.size() > 0) {
+          Pair<Point, Double> max = topOutliers.poll();
+          System.out.println(max.getValue0() + " : " + max.getValue1());
+        }
       }
-    }
-    return new KeyValue<Point, Double>(point, lof);
     } catch (Exception e) {
       System.out.println("11" + e);
     }
-
-    return null;
+    return new KeyValue<Point, Double>(point, lof);
   }
 
   public static void main(String[] args) {
-    // TODO: decide what to put in here, if anything.
+    // TODO: better handling of defaults.
+    Dotenv dotenv = Dotenv.load();
+
+    Properties props = new Properties();
+    props.put(StreamsConfig.APPLICATION_ID_CONFIG, dotenv.get("KAFKA_APP_ID"));
+    props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BROKER"));
+    props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+
+    StreamsBuilder builder = new StreamsBuilder();
+    KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
+
+    KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Parser.parse(value,
+                                                                                    " ",
+                                                                                    Integer.parseInt(dotenv.get("DIMENSIONS")))));
+
+    process(data, dotenv);
+
+    KafkaStreams streams = new KafkaStreams(builder.build(), props);
+        streams.start();
   }
 
   public static void setup(Dotenv config) {
@@ -324,19 +319,19 @@ public class ILOF {
       .map((key, point) -> updateLocalReachDensities(point))
       .map((key, point) -> updateLocalOutlierFactors(point))
       .map((key, point) -> clearDisposableSetsAndReturnCurrentScore(point))
-      //.map((point, lof) -> getTopNOutliers(point, lof))
       ;
 
     //lofScores.map((point, lof) -> getTopNOutliers(point, lof)); // let's ignore this function for now...
 
     // lofScores is a stream of (point, lof) keyvalues where the keys may be repeated
     // convert to ktable to get the latest value per point, hopefully
-    // i can query this name, i think
-    KTable<Point, Double> latestLofScores = lofScores.toTable(Materialized.as("latest-lof-scores"));
+    // i can query this name
+    //KTable<Point, Double> latestLofScores = lofScores.toTable(Materialized.as("latest-lof-scores"));
 
     // not sure what happens when i turn the table back into a stream
-    latestLofScores.toStream().print(Printed.toFile(config.get("SINK_FILE")));
+    //latestLofScores.toStream().print(Printed.toFile(config.get("SINK_FILE")));
 
+    // OR...
     // final Serde<String> stringSerde = Serdes.String();
     // lofScores.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
   }
