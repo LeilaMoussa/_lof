@@ -257,6 +257,11 @@ public class ILOF {
     return new KeyValue<Point, Double>(point, lof);
   }
 
+  public static void store(Point point) {
+    // TODO make pointStore set instead of map
+    pointStore.put(point, point);
+  }
+
   public static void main(String[] args) {
     // TODO: better handling of defaults.
     Dotenv dotenv = Dotenv.load();
@@ -274,7 +279,7 @@ public class ILOF {
                                                                                     " ",
                                                                                     Integer.parseInt(dotenv.get("DIMENSIONS")))));
 
-    process(data, dotenv);
+    processWithStore(data, dotenv);
 
     KafkaStreams streams = new KafkaStreams(builder.build(), props);
         streams.start();
@@ -334,6 +339,34 @@ public class ILOF {
     // OR...
     // final Serde<String> stringSerde = Serdes.String();
     // lofScores.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
+  }
+
+  public static void processWithStore(KStream<String, Point> data, Dotenv config) {
+    // This function contains the standalone ILOF algorithm.
+    setup(config);
+    data.foreach((key, point) -> store(point));
+
+    // TODO: might need to change these function signatures.
+    pointStore.values().forEach(point -> {
+      calculateSymmetricDistances(point, 
+                                      Optional.ofNullable(config.get("DISTANCE_MEASURE"))
+                                      .orElse("EUCLIDEAN"));
+      querykNN(point);
+      calculateReachDist(point);
+      calculateLocalReachDensity(point);
+      calculateLocalOutlierFactor(point);
+      queryReversekNN(point);
+      updateReachDists(point);
+      updateLocalReachDensities(point);
+      updateLocalOutlierFactors(point);
+      clearDisposableSetsAndReturnCurrentScore(point);
+    });
+
+    // TODO: need to write labeled data to sink file
+    // so write function that decides from lof score whether outlier (1) or not (0)
+    // and make stream of flat mapped (key: point, value: label)
+    // print stream to sink file then make materialize as topic
+
   }
 
   public static KStream<Point, Double> ilofRoutine(KStream<String, Point> data, Dotenv config) {
