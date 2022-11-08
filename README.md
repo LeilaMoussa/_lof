@@ -7,12 +7,14 @@
 - ilof: archived replication of ILOF
 - rtlofs: multi-module project containing algorithms i'm aiming for
 - producer.py: kafka producer
+- roc.py: generates roc curve and calculates auc given expected and actual labeled data
 
 ## Immediate Todos
 
-- [ ] debug ILOF (might require a refactor)
+- [ ] finish refactoring and debugging ILOF
 - [ ] write results to sink file
-- [ ] finish and test roc.py
+- [ ] also write to sink topic
+- [ ] finish and test roc.py (python version problems here)
 - [ ] call ilof from rlof
 - [ ] finish rlof (note: EvictingQueue, TarsosLSH)
 - [ ] generate ROC curve for RLOF

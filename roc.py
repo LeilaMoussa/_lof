@@ -3,22 +3,25 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
 from typing import List
 
-def getLabels(file: str) -> List[int]:
+# NOTE: I need scikit-learn v1, which means I need Python3.7+.
+# Messing with python versions on Ubuntu can get dangerous.
+
+def getLabels(file: str, d: int) -> List[int]:
     ans = []
-    with open(file, "r") as _in:
-        data = _in.readlines()
-        for line in data:
-            ans += line.split(" ")[2]  # TODO: pass dimensions too, here d=2
+    # with open(file, "r") as _in:
+    #     data = _in.readlines()
+    #     for line in data:
+    #         ans += line.split(" ")[d]
     return ans
 
 
 # copied from https://scikit-learn.org/stable/auto_examples/miscellaneous/plot_outlier_detection_bench.html then modified
-def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles_file: str):
+def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles_file: str, d: int):
 
     fig, axs = plt.subplots(1, 1, figsize=(10, 3))  # TODO: one fixed plot instead of subplots
 
-    y_pred = getLabels(sink_file)
-    y = getLabels(expected_profiles_file)
+    y_pred = getLabels(sink_file, d)
+    y = getLabels(expected_profiles_file, d)
 
     linewidth = 1
 
@@ -44,5 +47,5 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
 
 if __name__ == '__main__':
     # These files contain the data labeled as 0 (inlier) or 1 (outlier)
-    [_, alg_name, dataset_name, sink_file, expected_profiles_file] = sys.argv
-    plot_roc(alg_name, dataset_name, sink_file, expected_profiles_file)
+    [_, alg_name, dataset_name, sink_file, expected_profiles_file, dim] = sys.argv
+    plot_roc(alg_name, dataset_name, sink_file, expected_profiles_file, int(dim))
