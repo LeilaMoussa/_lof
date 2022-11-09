@@ -50,17 +50,17 @@ public class ILOF {
   public static int totalPoints;
 
   public static KeyValue<Point, Point> calculateSymmetricDistances(Point point, String distanceMeasure) {
-    System.out.println("start of " + point + " with total points " + totalPoints);
     try {
+      // TODO: implement proper logging.
       System.out.println(point);
-      pointStore.put(point, point);
       totalPoints += 1;
       pointStore.values().forEach((otherPoint) -> {
         final double distance = point.getDistanceTo(otherPoint, distanceMeasure);
         symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), distance);
       });
+      pointStore.put(point, point);
     } catch (Exception e) {
-      System.out.println("1" + e);
+      System.out.println("1 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -69,6 +69,7 @@ public class ILOF {
     try {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
       pointStore.values().forEach(otherPoint -> {
+        if (otherPoint.equals(point)) return;
         double distance = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
         distances.add(new Pair<Point, Double>(otherPoint, distance));
         // update kNNs of past points to be able to get correct RkNN later
@@ -93,19 +94,24 @@ public class ILOF {
         }
       });
       distances.sort(PointComparator.comparator());
-      double kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1(); // maybe k, not k-1, because self is there
+      double kdist = 0;
+      if (distances.size() > 0) {
+        kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1();
+      }
       kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
       int i = k;
-      for (; i < totalPoints && distances.get(i).getValue1() == kDistances.get(point); i++) { }
+      for (; i < distances.size() && distances.get(i).getValue1() == kDistances.get(point); i++) { }
       PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
-      distances.subList(0, Math.min(i, distances.size()-1)).forEach(neighbor -> {
-        if (neighbor.getValue0().equals(point)) return;
-        pq.add(neighbor);
-      });
+      if (distances.size() > 0) {
+        distances.subList(0, Math.min(i, distances.size()-1)).forEach(neighbor -> {
+          //if (neighbor.getValue0().equals(point)) return;
+          pq.add(neighbor);
+        });
+      }
       kNNs.put(point, pq);
       neighborhoodCardinalities.put(point, pq.size());
     } catch (Exception e) {
-      System.out.println("2" + e);
+      System.out.println("2 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -125,7 +131,7 @@ public class ILOF {
         }
       });
     } catch (Exception e) {
-      System.out.println("3" + e);
+      System.out.println("3 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -143,7 +149,7 @@ public class ILOF {
       }
       LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : neighborhoodCardinalities.get(point) / rdSum);
     } catch (Exception e) {
-      System.out.println("4 " + e + " point " + point);
+      System.out.println("4  " + e + " point " + point);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -157,23 +163,24 @@ public class ILOF {
       }
       LOFs.put(point, lrdSum / (LRDs.get(point) * neighborhoodCardinalities.get(point)));
     } catch (Exception e) {
-      System.out.println("5" + e);
+      System.out.println("5 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
 
   public static KeyValue<Point, Point> queryReversekNN(Point point) {
     try {
-      HashSet<Point> rknns = new HashSet<>();
+      HashSet<Point> rknn = new HashSet<>();
       pointStore.values().forEach(otherPoint -> {
+        if (otherPoint.equals(point)) return;
         double dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
         if (kNNs.get(otherPoint).contains(new Pair<Point, Double>(point, dist))) {
-          rknns.add(otherPoint);
+          rknn.add(otherPoint);
         }
       });
-      RkNNs.put(point, rknns);
+      RkNNs.put(point, rknn);
     } catch (Exception e) {
-      System.out.println("6" + e);
+      System.out.println("6 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -186,7 +193,7 @@ public class ILOF {
         });
       });
     } catch (Exception e) {
-      System.out.println("7" + e);
+      System.out.println("7 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -206,7 +213,7 @@ public class ILOF {
         }
       });
     } catch (Exception e) {
-      System.out.println("8" + e);
+      System.out.println("8 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -222,7 +229,7 @@ public class ILOF {
         calculateLocalOutlierFactor(toUpdate);
       });
     } catch (Exception e) {
-      System.out.println("9" + e);
+      System.out.println("9 " + e);
     }
     return new KeyValue<Point, Point>(point, point);
   }
@@ -233,9 +240,8 @@ public class ILOF {
       reachDistChanged.clear();
       neighCardinalityChanged.clear();
       lrdChanged.clear();
-      System.out.println("end of " + point + " with total points " + totalPoints);
     } catch (Exception e) {
-      System.out.println("10" + e);
+      System.out.println("10 " + e);
     }
     return new KeyValue<Point, Double>(point, LOFs.get(point));
   }
@@ -252,18 +258,14 @@ public class ILOF {
         }
       }
     } catch (Exception e) {
-      System.out.println("11" + e);
+      System.out.println("11 " + e);
     }
     return new KeyValue<Point, Double>(point, lof);
   }
 
-  public static void store(Point point) {
-    // TODO make pointStore set instead of map
-    pointStore.put(point, point);
-  }
-
   public static void main(String[] args) {
     // TODO: better handling of defaults.
+    // NOTE: run from working directory rtlofs.
     Dotenv dotenv = Dotenv.load();
 
     Properties props = new Properties();
@@ -276,13 +278,13 @@ public class ILOF {
     KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
 
     KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Parser.parse(value,
-                                                                                    " ",
-                                                                                    Integer.parseInt(dotenv.get("DIMENSIONS")))));
+                                                                              " ",
+                                                                              Integer.parseInt(dotenv.get("DIMENSIONS")))));
 
     processWithStore(data, dotenv);
 
     KafkaStreams streams = new KafkaStreams(builder.build(), props);
-        streams.start();
+    streams.start();
   }
 
   public static void setup(Dotenv config) {
@@ -344,13 +346,12 @@ public class ILOF {
   public static void processWithStore(KStream<String, Point> data, Dotenv config) {
     // This function contains the standalone ILOF algorithm.
     setup(config);
-    data.foreach((key, point) -> store(point));
+    data.foreach((key, point) -> calculateSymmetricDistances(point,
+                                                            Optional.ofNullable(config.get("DISTANCE_MEASURE"))
+                                                            .orElse("EUCLIDEAN")));
 
     // TODO: might need to change these function signatures.
     pointStore.values().forEach(point -> {
-      calculateSymmetricDistances(point, 
-                                      Optional.ofNullable(config.get("DISTANCE_MEASURE"))
-                                      .orElse("EUCLIDEAN"));
       querykNN(point);
       calculateReachDist(point);
       calculateLocalReachDensity(point);
