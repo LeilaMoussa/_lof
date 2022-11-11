@@ -29,6 +29,7 @@ public class Point {
           }
           return distance;
         default:
+          System.err.println("bad dist measure");
           return null;
       }
     }
