@@ -28,14 +28,16 @@ if __name__ == '__main__':
 
     producer = KafkaProducer(bootstrap_servers='localhost:9092')
 
+    count = 0
     for line in data:
-        print("at", line, '.')
         if not line:
             break
         line = line.strip().strip('\n')
         words = line.split()
         line = words[0] + " " + words[1]
+        print(count, line)
         producer.send(topic_name, line.encode())
+        count += 1
         time.sleep(interval)
 
     producer.close()
