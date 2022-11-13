@@ -63,6 +63,11 @@
         <artifactId>ilof</artifactId>
         <version>1.0-SNAPSHOT</version>
       </dependency>
+      <dependency>
+        <groupId>capstone</groupId>
+        <artifactId>rlof</artifactId>
+        <version>1.0-SNAPSHOT</version>
+      </dependency>
   </dependencies>
   </dependencyManagement>
 

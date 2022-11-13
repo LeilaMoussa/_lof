@@ -15,7 +15,7 @@ import io.github.cdimascio.dotenv.DotenvException;
 public class Driver {
 
     public static void main(String args[]) {
-        // Working directory must be rtlofs and .env must be in ./.env
+        // NOTE: Working directory must be rtlofs and .env must be in ./.env
         Dotenv dotenv = Dotenv
         // .configure()
         // .directory("")
@@ -41,10 +41,9 @@ public class Driver {
         switch (algorithm) {
             case "ILOF":
                 ILOF.process(data, dotenv);
-                //data.foreach(ILOF.process());
                 break;
             case "RLOF":
-                //
+                RLOF.process(data, dotenv);
                 break;
             case "MILOF":
                 //

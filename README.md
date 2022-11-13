@@ -11,10 +11,11 @@
 
 ## Immediate Todos
 
-- [ ] finish refactoring and debugging ILOF
-- [ ] write results to sink file
-- [ ] also write to sink topic
-- [ ] finish and test roc.py (python version problems here)
+- [x] finish refactoring and debugging ILOF (cosmetic changes to be done last, e.g. logging and config defaults)
+- [ ] label points as inliers or outliers, start with x%, then topN, then maybe, if i have time, using fixed threshold
+- [ ] write results to sink file (3 kinds of results: full profiles, labeled data, just outliers)
+- [ ] also write to sink topic (just outliers and labeled data)
+- [ ] finish and test roc.py (python version problems here) (update: scikit example code is incorrect!)
 - [ ] call ilof from rlof
 - [ ] finish rlof (note: EvictingQueue, TarsosLSH)
 - [ ] generate ROC curve for RLOF

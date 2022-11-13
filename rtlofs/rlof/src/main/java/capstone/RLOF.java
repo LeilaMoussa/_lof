@@ -1,4 +1,4 @@
-/* package capstone;
+package capstone;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -6,9 +6,11 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 import com.google.common.collect.MinMaxPriorityQueue;
 
+import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.KStream;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
+import io.github.cdimascio.dotenv.Dotenv;
 
 public class RLOF {
 
@@ -17,8 +19,9 @@ public class RLOF {
     public static HashMap<Point, Double> vpKdists = new HashMap<>();
     public static HashMap<Point, Double> vpRds = new HashMap<>();
     public static HashMap<Point, Double> vpLrds = new HashMap<>();
+    public static int ts = 0;
 
-    public static HashSet<Point> window = new HashSet<>(); // TODO: map or set? TODO: decide how to share window with ILOF
+    public static HashSet<Point> window = new HashSet<>(); // TODO: decide how to share window with ILOF
 
     public static Triplet<Point, Double, Integer> findBlackholeIfAny(Point point) {
         Triplet<Point, Double, Integer> found = null;
@@ -33,7 +36,7 @@ public class RLOF {
 
     public static void summarize() {
         // TODO: do the following in some setup function and have these be global
-        final int w = Integer.parseInt(dotenv.get("WINDOW"));
+        /* final int w = Integer.parseInt(dotenv.get("WINDOW"));
         final int perc = Integer.parseInt(dotenv.get("INLIER_PERCENTAGE"));
         final int numberTopInliers = (int)(w * perc / 100);
         MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
@@ -67,46 +70,60 @@ public class RLOF {
             vpRds.put(center, avgRd);
             vpLrds.put(center, avgLrd);
         }
-
-        window.removeAll(toDelete);
-
+        window.removeAll(toDelete); */
     }
 
     public static void updateVps(Triplet<Point, Double, Integer> blackHole, Point point) {
-        Point center = blackHole.getValue0();
+        /* Point center = blackHole.getValue0();
         int number = blackHole.getValue2();
         double newAvgKdist = (vpKdists.get(center) * number + kDists.get(point)) / (number + 1); // TODO
         double newAvgRd = (vpRds.get(center) * number + rds.get(point)) / (number + 1); // TODO
         double newAvgLrd = (vpLrds.get(center) * number + lrds.get(point)) / (number + 1); // TODO
         vpKdists.put(center, newAvgKdist);
         vpRds.put(center, newAvgRd);
-        vpLrds.put(center, newAvgLrd);
+        vpLrds.put(center, newAvgLrd); */
     }
 
-    // TODO: honestly, just pass dotenv
-    public static void detectOutliers(KStream<String, Point> data, int k, Integer topNOutliers, Double lofThresh, String distanceMeasure) {
+    public static void ageBasedDeletion() {
+
+    }
+
+    public static void setup(Dotenv config) {
+
+    }
+    
+    public static void process(KStream<String, Point> data, Dotenv config) {
         // when calling ilof, remember that ilof needs to know about the virtual points too
         // it would be pretty great to start using state stores right now, to avoid dealing with this much global state
 
-        // TODO: for age-based deletion, see streams tumbling window!
+        // for age-based deletion, see streams tumbling window!
 
-        // the following will change
         data
         .mapValues((key, point) -> findBlackholeIfAny(point))
         .mapValues((key, triplet) -> {
             if (triplet == null) {
                 // add to window, pass to ilof
             } else {
-                // from point's lrd, update triplet
+                // update triplet from point's profile (need to run ilof either way)
+                // don't insert here
             }
+            // TODO Change all integers (int, Integer), where applicable and reasonable, to Long
             return window.size();
         })
-        .mapValues((windowSize) -> {
+        .mapValues(windowSize -> {
             if (windowSize >= Integer.parseInt(config.get("WINDOW"))) {
                 summarize();
             }
-        });
+            return ++ts;
+        })
+        .mapValues(ts -> {
+            if (ts >= Integer.parseInt(config.get("MAX_AGE"))) {
+                ageBasedDeletion();
+            }
+            ts = 0;
+            return window.size();
+        })
+        ;
     }
     
 }
- */

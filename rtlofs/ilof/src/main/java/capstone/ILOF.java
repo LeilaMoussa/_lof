@@ -28,6 +28,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class ILOF {
 
+  // TODO make set
   public static HashMap<Point, Point> pointStore;
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
   public static HashMap<Point, Double> kDistances;
@@ -41,61 +42,6 @@ public class ILOF {
   
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static int totalPoints;
-
-  public static KeyValue<Point, Double> getTopNOutliers(Point point, Double lof) {
-    try {
-      // add to max heap of fixed size
-      topOutliers.add(new Pair<Point, Double>(point, lof));
-      if (totalPoints == 500) {
-        System.out.println("TOP OUTLIERS");
-        while (topOutliers.size() > 0) {
-          Pair<Point, Double> max = topOutliers.poll();
-          System.out.println(max.getValue0() + " : " + max.getValue1());
-        }
-      }
-    } catch (Exception e) {
-      System.out.println("11 " + e);
-    }
-    return new KeyValue<Point, Double>(point, lof);
-  }
-
-  public static void main(String[] args) {
-    // TODO: better handling of defaults.
-    // NOTE: run from working directory rtlofs.
-    Dotenv dotenv = Dotenv.load();
-
-    Properties props = new Properties();
-    props.put(StreamsConfig.APPLICATION_ID_CONFIG, dotenv.get("KAFKA_APP_ID"));
-    props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BROKER"));
-    props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-
-    StreamsBuilder builder = new StreamsBuilder();
-    KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
-
-    KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Parser.parse(value,
-                                                                              " ",
-                                                                              Integer.parseInt(dotenv.get("DIMENSIONS")))));
-
-    process(data, dotenv);
-
-    KafkaStreams streams = new KafkaStreams(builder.build(), props);
-    streams.start();
-  }
-
-  public static void setup(Dotenv config) {
-    pointStore = new HashMap<>();
-    kNNs = new HashMap<>();
-    kDistances = new HashMap<>();
-    reachDistances = new HashMap<>();
-    LRDs = new HashMap<>();
-    LOFs = new HashMap<>();
-    k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
-    topN = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
-    topPercent = Optional.ofNullable(Integer.parseInt(config.get("TOP_PERCENT_OUTLIERS"))).orElse(5);
-    topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(topN).create();
-    totalPoints = 0;
-  }
 
   public static void getkNN(Point point) {
     try {
@@ -205,6 +151,61 @@ public class ILOF {
     }
   }
 
+  public static KeyValue<Point, Double> getTopNOutliers(Point point, Double lof) {
+    try {
+      // add to max heap of fixed size
+      topOutliers.add(new Pair<Point, Double>(point, lof));
+      if (totalPoints == 500) {
+        System.out.println("TOP OUTLIERS");
+        while (topOutliers.size() > 0) {
+          Pair<Point, Double> max = topOutliers.poll();
+          System.out.println(max.getValue0() + " : " + max.getValue1());
+        }
+      }
+    } catch (Exception e) {
+      System.out.println("11 " + e);
+    }
+    return new KeyValue<Point, Double>(point, lof);
+  }
+
+  public static void main(String[] args) {
+    // TODO: better handling of defaults.
+    // NOTE: run from working directory rtlofs.
+    Dotenv dotenv = Dotenv.load();
+
+    Properties props = new Properties();
+    props.put(StreamsConfig.APPLICATION_ID_CONFIG, dotenv.get("KAFKA_APP_ID"));
+    props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BROKER"));
+    props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+
+    StreamsBuilder builder = new StreamsBuilder();
+    KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
+
+    KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Parser.parse(value,
+                                                                              " ",
+                                                                              Integer.parseInt(dotenv.get("DIMENSIONS")))));
+
+    process(data, dotenv);
+
+    KafkaStreams streams = new KafkaStreams(builder.build(), props);
+    streams.start();
+  }
+
+  public static void setup(Dotenv config) {
+    pointStore = new HashMap<>();
+    kNNs = new HashMap<>();
+    kDistances = new HashMap<>();
+    reachDistances = new HashMap<>();
+    LRDs = new HashMap<>();
+    LOFs = new HashMap<>();
+    k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
+    topN = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
+    topPercent = Optional.ofNullable(Integer.parseInt(config.get("TOP_PERCENT_OUTLIERS"))).orElse(5);
+    topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(topN).create();
+    totalPoints = 0;
+  }
+
   public static void process(KStream<String, Point> data, Dotenv config) {
     setup(config);
     data.foreach((key, point) -> {
@@ -214,7 +215,8 @@ public class ILOF {
       getRds(point);
       HashSet<Point> update_kdist = computeRkNN(point);
       for (Point to_update : update_kdist) {
-        // but i could write updatekDist() that performs the update logic from querykNN() for slightly better performance => i should do this (i.e. push and pop logic)
+        // but i could write updatekDist() that performs the update logic from querykNN()
+        // for slightly better performance => i should do this (i.e. push and pop logic)
         getkNN(to_update);
       }
       HashSet<Point> update_lrd = new HashSet<>(update_kdist);

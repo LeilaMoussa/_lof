@@ -36,6 +36,10 @@
         <groupId>capstone</groupId>
         <artifactId>common</artifactId>
       </dependency>
+      <dependency>
+        <groupId>io.github.cdimascio</groupId>
+        <artifactId>dotenv-java</artifactId>
+      </dependency>
   </dependencies>
 
     <build>
