@@ -16,6 +16,7 @@
 - [ ] write results to sink file (3 kinds of results: full profiles, labeled data, just outliers)
 - [ ] also write to sink topic (just outliers and labeled data)
 - [ ] finish and test roc.py (python version problems here) (update: scikit example code is incorrect!)
-- [ ] call ilof from rlof
+- [x] call ilof from rlof
 - [ ] finish rlof (note: EvictingQueue, TarsosLSH)
 - [ ] generate ROC curve for RLOF
+- [ ] C_LOF skeleton

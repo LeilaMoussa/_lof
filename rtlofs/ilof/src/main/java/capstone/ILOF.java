@@ -19,7 +19,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.Properties;
-import java.util.Set;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -206,51 +205,58 @@ public class ILOF {
     totalPoints = 0;
   }
 
+  public static void computeProfileAndMaintainWindow(Point point) {
+    // This function assumes active points are in pointStore
+    getkNN(point);
+    getRds(point);
+    HashSet<Point> update_kdist = computeRkNN(point);
+    for (Point to_update : update_kdist) {
+      // TODO: i could write updatekDist() that performs the update logic from querykNN()
+      // for slightly better performance => i should do this (i.e. push and pop logic)
+      getkNN(to_update);
+    }
+    HashSet<Point> update_lrd = new HashSet<>(update_kdist);
+    for (Point to_update : update_kdist) {
+      for (Pair<Point, Double> neigh : kNNs.get(to_update)) {
+        reachDistances.put(new Pair<>(neigh.getValue0(), to_update), kDistances.get(to_update));
+        // NOTE: following not from ILOF paper, but without it, reach_dist(old, new) wouldn't exist.
+        reachDistances.put(new Pair<>(to_update, neigh.getValue0()),
+                          Math.max(
+                            to_update.getDistanceTo(neigh.getValue0(), "EUCLIDEAN"),
+                            kDistances.get(neigh.getValue0())
+                          ));
+        
+        if (neigh.getValue0().equals(point)) {
+          continue;
+        }
+        // NOTE: in ILOF paper, thiss statement is conditional (if to_update is neighbor of neigh).
+        update_lrd.add(neigh.getValue0());
+        // NOTE: following is not from paper either but from notes.
+        for (Pair<Point,Double> y : kNNs.get(neigh.getValue0())) {
+          update_lrd.add(y.getValue0());
+        }
+      }
+    }
+    HashSet<Point> update_lof = new HashSet<>(update_lrd);
+    for (Point to_update : update_lrd) {
+      getLrd(to_update);
+      update_lof.addAll(getRkNN(to_update));
+    }
+    // NOTE: iN ILOF paper, this was right before getLof(), but getLof(to_update) needs lrd(new).
+    getLrd(point);
+    for (Point to_update : update_lof) {
+      if (to_update.equals(point)) continue;
+      getLof(to_update);
+    }
+    getLof(point);
+  }
+
   public static void process(KStream<String, Point> data, Dotenv config) {
     setup(config);
     data.foreach((key, point) -> {
       pointStore.put(point, point);
       totalPoints++;
-      getkNN(point);
-      getRds(point);
-      HashSet<Point> update_kdist = computeRkNN(point);
-      for (Point to_update : update_kdist) {
-        // but i could write updatekDist() that performs the update logic from querykNN()
-        // for slightly better performance => i should do this (i.e. push and pop logic)
-        getkNN(to_update);
-      }
-      HashSet<Point> update_lrd = new HashSet<>(update_kdist);
-      for (Point to_update : update_kdist) {
-        for (Pair<Point, Double> neigh : kNNs.get(to_update)) {
-          reachDistances.put(new Pair<>(neigh.getValue0(), to_update), kDistances.get(to_update));
-          reachDistances.put(new Pair<>(to_update, neigh.getValue0()),
-                            Math.max(
-                              to_update.getDistanceTo(neigh.getValue0(), "EUCLIDEAN"),
-                              kDistances.get(neigh.getValue0())
-                            ));
-          
-          if (neigh.getValue0().equals(point)) {
-            continue;
-          }
-          // TODO decide whether to being back condition isNeighborOf(to_update, neigh.getValue0())
-          update_lrd.add(neigh.getValue0());
-          // experimental:
-          for (Pair<Point,Double> y : kNNs.get(neigh.getValue0())) {
-            update_lrd.add(y.getValue0());
-          }
-        }
-      }
-      HashSet<Point> update_lof = new HashSet<>(update_lrd);
-      for (Point to_update : update_lrd) {
-        getLrd(to_update);
-        update_lof.addAll(getRkNN(to_update));
-      }
-      getLrd(point);
-      for (Point to_update : update_lof) {
-        if (to_update.equals(point)) continue;
-        getLof(to_update);
-      }
-      getLof(point);
+      computeProfileAndMaintainWindow(point);
       if (totalPoints == 500) {
         pointStore.values().forEach(x -> {
           System.out.println(x + "" + kNNs.get(x).size() + " " + LRDs.get(x) + " " + LOFs.get(x));

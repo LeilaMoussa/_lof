@@ -123,5 +123,6 @@
     <module>driver</module>
     <module>ilof</module>
     <module>rlof</module>
+    <module>clof</module>
   </modules>
 </project>

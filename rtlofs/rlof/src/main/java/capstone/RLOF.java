@@ -85,7 +85,7 @@ public class RLOF {
     }
 
     public static void ageBasedDeletion() {
-
+        // could use timestamps, perhaps with a hashmap
     }
 
     public static void setup(Dotenv config) {
@@ -99,13 +99,18 @@ public class RLOF {
         // for age-based deletion, see streams tumbling window!
 
         data
-        .mapValues((key, point) -> findBlackholeIfAny(point))
-        .mapValues((key, triplet) -> {
+        .map((key, point) -> {
+            Triplet<Point, Double, Integer> triplet = findBlackholeIfAny(point);
+            return new KeyValue<Point, Triplet<Point, Double, Integer>>(point, triplet);
+        })
+        .mapValues((point, triplet) -> {
+            ILOF.computeProfileAndMaintainWindow(point); // need to retrieve point profile saved somewhere
+            // at this point, i need to start fixing global state
             if (triplet == null) {
-                // add to window, pass to ilof
+                // add to window
             } else {
-                // update triplet from point's profile (need to run ilof either way)
-                // don't insert here
+                updateVps(triplet, point);
+                // don't insert here into window
             }
             // TODO Change all integers (int, Integer), where applicable and reasonable, to Long
             return window.size();
