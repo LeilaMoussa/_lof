@@ -42,7 +42,27 @@ public class ILOF {
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static int totalPoints;
 
-  public static void getkNN(Point point) {
+  public static void getTarsosLshkNN(Point point) {
+    // params:
+    // List<Vector> dataset
+    // HashFamily family
+    // int numberOfHashes
+    // int numberOfHashTables
+    // List<Vector> queries
+    // int numberOfNeighbours
+    // might have to modify it to instead of printing the result, returning it
+    // copy paste relevant code from tarsos with citation?
+  }
+
+  public static void getkNN(Point point, String nnTechnique) {
+    switch (nnTechnique) {
+      case "FLAT": getFlatkNN(point); return;
+      case "LSH": getTarsosLshkNN(point); return;
+      default: System.out.println("Unsupported nearest neighbor search technique.");
+    }
+  }
+
+  public static void getFlatkNN(Point point) {
     try {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
       pointStore.values().forEach(otherPoint -> {
@@ -60,13 +80,14 @@ public class ILOF {
       for (; i < distances.size() && distances.get(i).getValue1() == kdist; i++) { }
       PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
       if (distances.size() > 0) {
+        // TODO: could turn into addAll for conciseness.
         distances.subList(0, Math.min(i, distances.size())).forEach(neighbor -> {
           pq.add(neighbor);
         });
       }
       kNNs.put(point, pq);
     } catch (Exception e) {
-      System.out.println("getkNN " + e);
+      System.out.println("getFlatkNN " + e);
     }
   }
 
@@ -207,13 +228,13 @@ public class ILOF {
 
   public static void computeProfileAndMaintainWindow(Point point) {
     // This function assumes active points are in pointStore
-    getkNN(point);
+    getFlatkNN(point);
     getRds(point);
     HashSet<Point> update_kdist = computeRkNN(point);
     for (Point to_update : update_kdist) {
       // TODO: i could write updatekDist() that performs the update logic from querykNN()
       // for slightly better performance => i should do this (i.e. push and pop logic)
-      getkNN(to_update);
+      getFlatkNN(to_update);
     }
     HashSet<Point> update_lrd = new HashSet<>(update_kdist);
     for (Point to_update : update_kdist) {

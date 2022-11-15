@@ -21,7 +21,7 @@ public class RLOF {
     public static HashMap<Point, Double> vpLrds = new HashMap<>();
     public static int ts = 0;
 
-    public static HashSet<Point> window = new HashSet<>(); // TODO: decide how to share window with ILOF
+    public static HashSet<Point> window = new HashSet<>();
 
     public static Triplet<Point, Double, Integer> findBlackholeIfAny(Point point) {
         Triplet<Point, Double, Integer> found = null;
@@ -36,6 +36,7 @@ public class RLOF {
 
     public static void summarize() {
         // TODO: do the following in some setup function and have these be global
+
         /* final int w = Integer.parseInt(dotenv.get("WINDOW"));
         final int perc = Integer.parseInt(dotenv.get("INLIER_PERCENTAGE"));
         final int numberTopInliers = (int)(w * perc / 100);
@@ -44,14 +45,14 @@ public class RLOF {
                                                             .maximumSize(numberTopInliers)
                                                             .create();
         for (Point point : window) {
-            sorted.add(new Pair<Point, Double>(point, LOFs.get(point))); // TODO: decide on how LOFs etc. are shared
+            sorted.add(new Pair<Point, Double>(point, LOFs.get(point)));
         }
         HashSet<Point> toDelete = new HashSet<>();
         for (Pair<Point,Double> inlier : sorted) {
             Point center = inlier.getValue0();
             toDelete.add(center);
-            double radius = kDists.get(center); // TODO same here
-            HashSet<Point> neighbors = kNNs.get(center); // TODO: probably not hashset<point>
+            double radius = kDists.get(center);
+            HashSet<Point> neighbors = kNNs.get(center); // TODO: value is hashset<point>
             toDelete.addAll(neighbors);
             int number = neighbors.size() + 1;
             blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
@@ -59,7 +60,7 @@ public class RLOF {
             for (Point neighbor : neighbors) {
                 avgKdist += kDists.get(neighbor);
                 avgRd += rds.get(neighbor);
-                avgLrd += lrds.get(neighbor); // TODO
+                avgLrd += lrds.get(neighbor);
             }
             // TODO make sure size in non zero, which should always be the case as this is an inlier
             avgKdist /= neighbors.size();
@@ -70,22 +71,27 @@ public class RLOF {
             vpRds.put(center, avgRd);
             vpLrds.put(center, avgLrd);
         }
+        // TODO: remove profiles of these points from everywhere.
         window.removeAll(toDelete); */
     }
 
     public static void updateVps(Triplet<Point, Double, Integer> blackHole, Point point) {
         /* Point center = blackHole.getValue0();
         int number = blackHole.getValue2();
-        double newAvgKdist = (vpKdists.get(center) * number + kDists.get(point)) / (number + 1); // TODO
-        double newAvgRd = (vpRds.get(center) * number + rds.get(point)) / (number + 1); // TODO
-        double newAvgLrd = (vpLrds.get(center) * number + lrds.get(point)) / (number + 1); // TODO
+        double newAvgKdist = (vpKdists.get(center) * number + kDists.get(point)) / (number + 1);
+        double newAvgRd = (vpRds.get(center) * number + rds.get(point)) / (number + 1);
+        double newAvgLrd = (vpLrds.get(center) * number + lrds.get(point)) / (number + 1);
         vpKdists.put(center, newAvgKdist);
         vpRds.put(center, newAvgRd);
         vpLrds.put(center, newAvgLrd); */
     }
 
     public static void ageBasedDeletion() {
-        // could use timestamps, perhaps with a hashmap
+        // could use timestamps, perhaps with a hashmap like this
+        HashMap<Point, Long> timestamps = new HashMap<>();
+        timestamps.entrySet().forEach(entry-> {
+            // what?
+        });
     }
 
     public static void setup(Dotenv config) {
@@ -94,9 +100,19 @@ public class RLOF {
     
     public static void process(KStream<String, Point> data, Dotenv config) {
         // when calling ilof, remember that ilof needs to know about the virtual points too
+        // => when calling ilof on a point, insert all the vps "temporarily" into the pointstore that is passed to ilof
+        // with coordinatess such that they are positioned to achieve abs(d-R) or sqrt(d²+R²) or d+R
+        // or better yet, pass as separate collection indicating their symDistances are fixed and known
+        // but they need to be treated like Points though they don't have coordinates
+
         // it would be pretty great to start using state stores right now, to avoid dealing with this much global state
 
         // for age-based deletion, see streams tumbling window!
+
+        // define window here
+        // pass it to ilof as pointstore
+        // need to ensure that profiles in ilof act like singletons: maybe init here and pass in and out of ilof?
+        // vp data stays here of course
 
         data
         .map((key, point) -> {
@@ -104,7 +120,8 @@ public class RLOF {
             return new KeyValue<Point, Triplet<Point, Double, Integer>>(point, triplet);
         })
         .mapValues((point, triplet) -> {
-            ILOF.computeProfileAndMaintainWindow(point); // need to retrieve point profile saved somewhere
+            ILOF.computeProfileAndMaintainWindow(point);
+            // need to retrieve point profile
             // at this point, i need to start fixing global state
             if (triplet == null) {
                 // add to window
@@ -115,6 +132,8 @@ public class RLOF {
             // TODO Change all integers (int, Integer), where applicable and reasonable, to Long
             return window.size();
         })
+        // which one to do first? summarization or age based deletion when the max window size is exceeded?
+        // i feel like age based deletion is slightly less "disruptive"
         .mapValues(windowSize -> {
             if (windowSize >= Integer.parseInt(config.get("WINDOW"))) {
                 summarize();
@@ -122,10 +141,8 @@ public class RLOF {
             return ++ts;
         })
         .mapValues(ts -> {
-            if (ts >= Integer.parseInt(config.get("MAX_AGE"))) {
-                ageBasedDeletion();
-            }
-            ts = 0;
+            // if i'm using timestamps, assign a ts to each point here
+            ageBasedDeletion();
             return window.size();
         })
         ;
