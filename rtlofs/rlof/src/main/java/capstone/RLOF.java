@@ -14,23 +14,23 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class RLOF {
 
-    public static HashSet<Point> window = new HashSet<>();
+    public static HashSet<Point> window ;
     public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
     public static HashMap<Point, Double> kDistances;
     public static HashMap<Pair<Point, Point>, Double> reachDistances;
     public static HashMap<Point, Double> LRDs;
     public static HashMap<Point, Double> LOFs;
 
-    public static HashSet<Triplet<Point, Double, Integer>> blackHoles = new HashSet<>(); // Center, Radius, Number
+    public static HashSet<Triplet<Point, Double, Integer>> blackHoles; // Center, Radius, Number
     // profiles of vps, where the keys are the blackhole centers
-    public static HashMap<Point, Double> vpKdists = new HashMap<>();
-    public static HashMap<Point, Double> vpRds = new HashMap<>();
-    public static HashMap<Point, Double> vpLrds = new HashMap<>();
+    public static HashMap<Point, Double> vpKdists;
+    public static HashMap<Point, Double> vpRds;
+    public static HashMap<Point, Double> vpLrds;
 
     public static long ts = 0L;
-    public static HashMap<Point, Long> pointTimestamps = new HashMap<>();
+    public static HashMap<Point, Long> pointTimestamps;
     // again, key is BH center
-    public static HashMap<Point, Long> vpTimestamps = new HashMap<>();
+    public static HashMap<Point, Long> vpTimestamps;
 
     public static long W;
     public static long MAX_AGE;
@@ -104,6 +104,7 @@ public class RLOF {
         double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
         blackHoles.remove(blackHole);
         blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
+        vpTimestamps.put(center, 0L);
     }
 
     public static void ageBasedDeletion() {
@@ -154,6 +155,19 @@ public class RLOF {
     }
 
     public static void setup(Dotenv config) {
+        window = new HashSet<>();
+        kNNs = new HashMap<>();
+        kDistances = new HashMap<>();
+        reachDistances = new HashMap<>();
+        LRDs = new HashMap<>();
+        LOFs = new HashMap<>();
+        blackHoles = new HashSet<>();
+        vpKdists = new HashMap<>();
+        vpRds = new HashMap<>();
+        vpLrds = new HashMap<>();
+        pointTimestamps = new HashMap<>();
+        vpTimestamps = new HashMap<>();
+        
         W = Integer.parseInt(config.get("WINDOW"));
         MAX_AGE = Integer.parseInt(config.get("MAX_AGE"));
         DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
@@ -174,30 +188,30 @@ public class RLOF {
             return new KeyValue<Point, HashSet<Triplet<Point, Double, Integer>>>(point, triplets);
         })
         .mapValues((point, triplets) -> {
-            // TODO pass data in and out of this
-            ILOF.computeProfileAndMaintainWindow(point);
+            ILOF.ilofSubroutine(point);
             if (triplets.size() == 0) {
-                // add to window
-                // only increment ts if point was actually added
+                window.add(point);
                 pointTimestamps.put(point, ts++);
             } else {
                 for (Triplet<Point,Double,Integer> triplet : triplets) {
                     updateVps(triplet, point);   
                 }
-                // don't insert here into window
             }
             return window.size();
         })
         // which one to do first? summarization or age based deletion when the max window size is exceeded?
         // i *feel* like age based deletion is slightly less "disruptive"
+        // the following decisions are a little bit arbitrary
         .mapValues(windowSize -> {
             if (windowSize >= W) {
                 summarize();
             }
-            return 0; // decide what to return
+            return window.size();
         })
-        .mapValues(ts -> {
-            ageBasedDeletion();
+        .mapValues(windowSize -> {
+            if (windowSize >= W) {
+                ageBasedDeletion();
+            }
             return window.size();
         })
         ;

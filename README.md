@@ -19,13 +19,16 @@
 - [x] call ilof from rlof
 - [ ] finish rlof.java
     - [x] create all collections
-    - [ ] pass and/or import them in and out of ilof
-    - [ ] age-based deletion
+    - [x] pass and/or import them in and out of ilof
+    - [x] age-based deletion
         - [x] points
         - [x] black holes
     - [x] get multiple black holes the point belongs to and update all of them, including radius
+    - [ ] decide on how ilof treats virtual points
+    - [ ] average reachdist logic
 - [ ] plug TarsosLSH into ILOF
     - [x] fix folder structure
+    - [ ] look at radius business!
     - [ ] maybe prune out the code i don't need?
 - [ ] generate ROC curve for RLOF
 - [ ] C_LOF skeleton

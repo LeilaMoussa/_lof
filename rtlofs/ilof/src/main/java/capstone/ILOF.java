@@ -54,7 +54,6 @@ public class ILOF {
   public static long totalPoints;
 
   public static void getTarsosLshkNN(Point point) {
-    // TODO fix folder structure and packages to be able to use LSH
     HashFamily hashFamily = null;
     switch (DISTANCE_MEASURE) {
       // TODO get these radii
@@ -249,8 +248,35 @@ public class ILOF {
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
   }
 
+  public static void ilofSubroutine(Point point) {
+    // setup() should not have been called at all here, so the static collections in this class
+    // are uninitialized
+    // so if i initialize them with all these references at each iteration
+    // i don't have to change the function below
+    // but then, i need to return values, which i could do with a set of all these collections
+    // i want to find a way to share the same collections, no duplicates
+    // init them in rlof, import them here, make all collections here point to those that are imported
+    // make sure to disambiguate the names
+    // when the below function executes, the aliases are used and the referenced collections are mutated
+    pointStore = RLOF.window;
+    kNNs = RLOF.kNNs;
+    kDistances = RLOF.kDistances;
+    reachDistances = RLOF.reachDistances;
+    LRDs = RLOF.LRDs;
+    LOFs = RLOF.LOFs;
+    // TODO most probably other stuff related to vps
+    computeProfileAndMaintainWindow(point);
+  }
+
   public static void computeProfileAndMaintainWindow(Point point) {
-    // This function assumes active points are in pointStore
+    // This function assumes relevant collections (pointStore + all profile collections)
+    // contain the right data from the previous iteration
+    // whether called from driver (standalone) or from another algorithm
+    // standalone mode is handled
+    // when called from another algorithm, i'll try to pass these collections as input
+    // and hope they get mutated properly
+    // so i really need another function
+
     getkNN(point, NNS_TECHNIQUE);
     getRds(point);
     HashSet<Point> update_kdist = computeRkNN(point);
@@ -273,7 +299,7 @@ public class ILOF {
         if (neigh.getValue0().equals(point)) {
           continue;
         }
-        // NOTE: in ILOF paper, thiss statement is conditional (if to_update is neighbor of neigh).
+        // NOTE: in ILOF paper, this statement is conditional (if to_update is neighbor of neigh).
         update_lrd.add(neigh.getValue0());
         // NOTE: following is not from paper either but from notes.
         for (Pair<Point,Double> y : kNNs.get(neigh.getValue0())) {
@@ -286,7 +312,7 @@ public class ILOF {
       getLrd(to_update);
       update_lof.addAll(getRkNN(to_update));
     }
-    // NOTE: iN ILOF paper, this was right before getLof(), but getLof(to_update) needs lrd(new).
+    // NOTE: in ILOF paper, this was right before getLof(), but getLof(to_update) needs lrd(new).
     getLrd(point);
     for (Point to_update : update_lof) {
       if (to_update.equals(point)) continue;
