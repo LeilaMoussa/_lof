@@ -22,7 +22,6 @@ package be.tarsos.lsh;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
 
 import be.tarsos.lsh.families.CityBlockDistance;
 import be.tarsos.lsh.families.CityBlockHashFamily;
@@ -165,9 +164,9 @@ public class CommandLineInterface {
 	}
 	
 	// To be called from outside this class.
-	public List<List<Vector>> lshSearch(List<Vector> dataset, HashFamily family, int numberOfHashes,
+	public static List<List<Vector>> lshSearch(List<Vector> dataset, HashFamily family, int numberOfHashes,
 										int numberOfHashTables, List<Vector> queries, int numberOfNeighbours) {
-		List<List<Vector<E>>> ans = new ArrayList<>();
+		List<List<Vector>> ans = new ArrayList<>();
 		LSH lsh = new LSH(dataset, family);
 		lsh.buildIndex(numberOfHashes, numberOfHashTables);		
 		if(queries != null){

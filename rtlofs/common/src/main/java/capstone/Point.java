@@ -2,6 +2,8 @@ package capstone;
 
 import java.util.ArrayList;
 
+import be.tarsos.lsh.Vector;
+
 public class Point {
     ArrayList<Double> attributes;
     int dim;
@@ -32,6 +34,16 @@ public class Point {
           System.err.println("bad dist measure");
           return null;
       }
+    }
+
+    public Vector toVector() {
+      // NOTE: this is NOT java.util.Vector, this is be.tarsos.lsh.Vector
+      // TODO: make this look nicer
+      double[] arr = new double[this.dim];
+      for (int i = 0; i < this.dim; i++) {
+        arr[i] = this.getAttribute(i);
+      }
+      return new Vector("", arr); // null key
     }
 
     @Override

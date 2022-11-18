@@ -19,15 +19,19 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.Properties;
+import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.Optional;
 
 import org.javatuples.Pair;
-
 import io.github.cdimascio.dotenv.Dotenv;
+
+import be.tarsos.lsh.CommandLineInterface;
+import be.tarsos.lsh.families.*;
 
 public class ILOF {
 
+  // These collections should only be initialized and used when standalone ILOF is run.
   public static HashSet<Point> pointStore;
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
   public static HashMap<Point, Double> kDistances;
@@ -35,32 +39,37 @@ public class ILOF {
   public static HashMap<Point, Double> LRDs;
   public static HashMap<Point, Double> LOFs;
 
+  // NOTE: not all these variables are relevant all the time.
+  // Conditional initialization? Eh...
   public static int k;
-  public static int topN;
-  public static int topPercent;
-  public static String distanceMeasure;
-  public static String nnsTechnique;
-  
+  public static int d;
+  public static int TOP_N;
+  public static int TOP_PERCENT;
+  public static String DISTANCE_MEASURE;
+  public static String NNS_TECHNIQUE;
+  public static int HASHES;
+  public static int HASHTABLES;
+
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
 
   public static void getTarsosLshkNN(Point point) {
     // TODO fix folder structure and packages to be able to use LSH
-    HashFamily hashFamily;
-    switch (distanceMeasure) {
-      case "EUCLIDEAN": hashFamily = new EuclidianHashFamily(/*radiusEuclidean,dimensions*/); break;
-      case "MANHATTAN": hashFamily = new CityBlockHashFamily(/*radiusCityBlock,dimensions*/); break;
+    HashFamily hashFamily = null;
+    switch (DISTANCE_MEASURE) {
+      // TODO get these radii
+      case "EUCLIDEAN": hashFamily = new EuclidianHashFamily(0, d); break; // radiusEuclidean
+      case "MANHATTAN": hashFamily = new CityBlockHashFamily(0, d); break; // radiusCityBlock
       default: System.out.println("Unsupported distance measure.");
     }
-    // params:
-    // List<Vector> dataset
-    // HashFamily family
-    // int numberOfHashes
-    // int numberOfHashTables
-    // List<Vector> queries
-    // int numberOfNeighbours = k (but again, not quite)
 
-    lshSearch(dataset, family, numberOfHashes, numberOfHashTables, Arrays.asList(), numberOfNeighbours);
+    // TODO if I want to save the same hyperplanes etc. I need some more work here.
+    CommandLineInterface.lshSearch(pointStore.stream().map(Point::toVector).collect(Collectors.toList()),
+              hashFamily,
+              HASHES,
+              HASHTABLES,
+              Arrays.asList(point.toVector()),
+              k);
   }
 
   public static void getFlatkNN(Point point) {
@@ -68,7 +77,7 @@ public class ILOF {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
       pointStore.forEach(otherPoint -> {
         if (otherPoint.equals(point)) return;
-        double distance = point.getDistanceTo(otherPoint, distanceMeasure);
+        double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
         distances.add(new Pair<Point, Double>(otherPoint, distance));
       });
       distances.sort(PointComparator.comparator());
@@ -92,8 +101,8 @@ public class ILOF {
     }
   }
 
-  public static void getkNN(Point point, String nnsTechnique) {
-    switch (nnsTechnique) {
+  public static void getkNN(Point point, String NNS_TECHNIQUE) {
+    switch (NNS_TECHNIQUE) {
       case "FLAT": getFlatkNN(point); return;
       case "LSH": getTarsosLshkNN(point); return;
       default: System.out.println("Unsupported nearest neighbor search technique.");
@@ -104,7 +113,7 @@ public class ILOF {
     try {
       kNNs.get(point).forEach(neighbor -> {
         double reachDist = Math.max(kDistances.get(neighbor.getValue0()), 
-                                    point.getDistanceTo(neighbor.getValue0(), distanceMeasure));
+                                    point.getDistanceTo(neighbor.getValue0(), DISTANCE_MEASURE));
         Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
         reachDistances.put(pair, reachDist);
       });
@@ -141,7 +150,7 @@ public class ILOF {
     try {
       pointStore.forEach(x -> {
         if (x.equals(point)) return;
-        double dist = point.getDistanceTo(x, distanceMeasure);
+        double dist = point.getDistanceTo(x, DISTANCE_MEASURE);
         if (dist <= kDistances.get(x)) {
           rknn.add(x);
         }
@@ -229,23 +238,26 @@ public class ILOF {
     LRDs = new HashMap<>();
     LOFs = new HashMap<>();
     k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
-    topN = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
-    topPercent = Optional.ofNullable(Integer.parseInt(config.get("TOP_PERCENT_OUTLIERS"))).orElse(5);
-    distanceMeasure = config.get("DISTANCE_MEASURE");
-    topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(topN).create();
+    TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
+    TOP_PERCENT = Optional.ofNullable(Integer.parseInt(config.get("TOP_PERCENT_OUTLIERS"))).orElse(5);
+    DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
+    topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
     totalPoints = 0;
-    nnsTechnique = config.get("ANNS");
+    NNS_TECHNIQUE = config.get("ANNS");
+    d = Integer.parseInt(config.get("DIMENSIONS"));
+    HASHES = Integer.parseInt(config.get("HASHES"));
+    HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
   }
 
   public static void computeProfileAndMaintainWindow(Point point) {
     // This function assumes active points are in pointStore
-    getkNN(point, nnsTechnique);
+    getkNN(point, NNS_TECHNIQUE);
     getRds(point);
     HashSet<Point> update_kdist = computeRkNN(point);
     for (Point to_update : update_kdist) {
       // TODO: i could write updatekDist() that performs the update logic from querykNN()
       // for slightly better performance => i should do this (i.e. push and pop logic)
-      getkNN(to_update, nnsTechnique);
+      getkNN(to_update, NNS_TECHNIQUE);
     }
     HashSet<Point> update_lrd = new HashSet<>(update_kdist);
     for (Point to_update : update_kdist) {
@@ -254,7 +266,7 @@ public class ILOF {
         // NOTE: following not from ILOF paper, but without it, reach_dist(old, new) wouldn't exist.
         reachDistances.put(new Pair<>(to_update, neigh.getValue0()),
                           Math.max(
-                            to_update.getDistanceTo(neigh.getValue0(), distanceMeasure),
+                            to_update.getDistanceTo(neigh.getValue0(), DISTANCE_MEASURE),
                             kDistances.get(neigh.getValue0())
                           ));
         

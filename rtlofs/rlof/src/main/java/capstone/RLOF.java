@@ -1,8 +1,8 @@
 package capstone;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import com.google.common.collect.MinMaxPriorityQueue;
 
@@ -14,26 +14,33 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class RLOF {
 
+    public static HashSet<Point> window = new HashSet<>();
+    public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
+    public static HashMap<Point, Double> kDistances;
+    public static HashMap<Pair<Point, Point>, Double> reachDistances;
+    public static HashMap<Point, Double> LRDs;
+    public static HashMap<Point, Double> LOFs;
+
     public static HashSet<Triplet<Point, Double, Integer>> blackHoles = new HashSet<>(); // Center, Radius, Number
     // profiles of vps, where the keys are the blackhole centers
     public static HashMap<Point, Double> vpKdists = new HashMap<>();
     public static HashMap<Point, Double> vpRds = new HashMap<>();
     public static HashMap<Point, Double> vpLrds = new HashMap<>();
+
     public static long ts = 0L;
     public static HashMap<Point, Long> pointTimestamps = new HashMap<>();
     // again, key is BH center
     public static HashMap<Point, Long> vpTimestamps = new HashMap<>();
+
     public static long W;
     public static long MAX_AGE;
-    public static String distanceMeasure;
-    public static int inlierPercentage;
-
-    public static HashSet<Point> window = new HashSet<>();
+    public static String DISTANCE_MEASURE;
+    public static int INLIER_PERCENTAGE;
 
     public static HashSet<Triplet<Point, Double, Integer>> findBlackholeIfAny(Point point) {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
         for (Triplet<Point, Double, Integer> triplet : blackHoles) {
-            double distance = point.getDistanceTo(triplet.getValue0(), distanceMeasure);
+            double distance = point.getDistanceTo(triplet.getValue0(), DISTANCE_MEASURE);
             if (distance <= triplet.getValue1()) {
                 found.add(triplet);
             }
@@ -42,7 +49,7 @@ public class RLOF {
     }
 
     public static void summarize() {
-        final int numberTopInliers = (int)(W * inlierPercentage / 100);
+        final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
         MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
                                                             .orderedBy(PointComparator.comparator().reversed())
                                                             .maximumSize(numberTopInliers)
@@ -54,17 +61,21 @@ public class RLOF {
         for (Pair<Point,Double> inlier : sorted) {
             Point center = inlier.getValue0();
             toDelete.add(center);
-            double radius = kDists.get(center);
-            HashSet<Point> neighbors = kNNs.get(center); // TODO: value is hashset<point>
+            double radius = kDistances.get(center);
+            HashSet<Point> neighbors = new HashSet<>();
+            for (Pair<Point,Double> n : kNNs.get(center)) {
+                neighbors.add(n.getValue0());
+            }
             toDelete.addAll(neighbors);
             int number = neighbors.size() + 1;
             blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
-            double avgKdist, avgRd, avgLrd;
+            double avgKdist = 0, avgRd = 0, avgLrd = 0;
             for (Point neighbor : neighbors) {
-                avgKdist += kDists.get(neighbor);
-                avgRd += rds.get(neighbor);
-                avgLrd += lrds.get(neighbor);
+                avgKdist += kDistances.get(neighbor);
+                avgRd += reachDistances.get(neighbor); // TODO: need to average multiple rds!
+                avgLrd += LRDs.get(neighbor);
             }
+            // hack:
             if (neighbors.size() == 0) {
                 System.out.println("neighbors size should not be 0!");
                 System.exit(1);
@@ -76,23 +87,21 @@ public class RLOF {
             vpKdists.put(center, avgKdist);
             vpRds.put(center, avgRd);
             vpLrds.put(center, avgLrd);
-            vpTimestamps.put(center, ts); // ts is only incremented when a neww real point joins
+            vpTimestamps.put(center, ts); // ts is only incremented when a new real point joins
         }
-        // TODO: remove profiles of these points from everywhere.
-        // might have to make a function for this
-        window.removeAll(toDelete);
+        fullyDeleteRealPoints(toDelete);
     }
 
     public static void updateVps(Triplet<Point, Double, Integer> blackHole, Point point) {
         Point center = blackHole.getValue0();
         int number = blackHole.getValue2();
-        double newAvgKdist = (vpKdists.get(center) * number + kDists.get(point)) / (number + 1);
-        double newAvgRd = (vpRds.get(center) * number + rds.get(point)) / (number + 1);
-        double newAvgLrd = (vpLrds.get(center) * number + lrds.get(point)) / (number + 1);
+        double newAvgKdist = (vpKdists.get(center) * number + kDistances.get(point)) / (number + 1);
+        double newAvgRd = (vpRds.get(center) * number + reachDistances.get(point)) / (number + 1); // TODO: bad!
+        double newAvgLrd = (vpLrds.get(center) * number + LRDs.get(point)) / (number + 1);
         vpKdists.put(center, newAvgKdist);
         vpRds.put(center, newAvgRd);
         vpLrds.put(center, newAvgLrd);
-        double new_kdist = point.getDistanceTo(blackHole.getValue0(), distanceMeasure);
+        double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
         blackHoles.remove(blackHole);
         blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
     }
@@ -106,8 +115,7 @@ public class RLOF {
                 toDelete.add(entry.getKey());
             }
         });
-        window.removeAll(toDelete);
-        // TODO delete profile information of toDelete here
+        fullyDeleteRealPoints(toDelete);
         // now for the vps:
         toDelete.clear();
         vpTimestamps.entrySet().forEach(entry -> {
@@ -115,6 +123,27 @@ public class RLOF {
                 toDelete.add(entry.getKey());
             }
         });
+        fullyDeleteVirtualPoints(toDelete);
+    }
+
+    public static void fullyDeleteRealPoints(HashSet<Point> toDelete) {
+        window.removeAll(toDelete);
+        for (Point x : toDelete) {
+            kNNs.remove(x);
+            kDistances.remove(x);
+            LRDs.remove(x);
+            LOFs.remove(x);
+            pointTimestamps.remove(x);
+            // This is not great code...
+            for (Entry<Pair<Point,Point>,Double> entry : reachDistances.entrySet()) {
+                if (entry.getKey().getValue0().equals(x) || entry.getKey().getValue1().equals(x)) {
+                    reachDistances.remove(entry.getKey()); // probably bad to delete within loop?
+                }
+            }
+        }
+    }
+
+    public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
         blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
         for (Point x : toDelete) {
             vpKdists.remove(x);
@@ -125,11 +154,10 @@ public class RLOF {
     }
 
     public static void setup(Dotenv config) {
-        // TODO unify naming convention
         W = Integer.parseInt(config.get("WINDOW"));
         MAX_AGE = Integer.parseInt(config.get("MAX_AGE"));
-        distanceMeasure = config.get("DISTANCE_MEASURE");
-        inlierPercentage = Integer.parseInt(config.get("INLIER_PERCENTAGE"));
+        DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
+        INLIER_PERCENTAGE = Integer.parseInt(config.get("INLIER_PERCENTAGE"));
     }
     
     public static void process(KStream<String, Point> data, Dotenv config) {
@@ -146,9 +174,8 @@ public class RLOF {
             return new KeyValue<Point, HashSet<Triplet<Point, Double, Integer>>>(point, triplets);
         })
         .mapValues((point, triplets) -> {
+            // TODO pass data in and out of this
             ILOF.computeProfileAndMaintainWindow(point);
-            // need to retrieve point profile
-            // at this point, i need to start fixing global state
             if (triplets.size() == 0) {
                 // add to window
                 // only increment ts if point was actually added
@@ -162,7 +189,7 @@ public class RLOF {
             return window.size();
         })
         // which one to do first? summarization or age based deletion when the max window size is exceeded?
-        // i feel like age based deletion is slightly less "disruptive"
+        // i *feel* like age based deletion is slightly less "disruptive"
         .mapValues(windowSize -> {
             if (windowSize >= W) {
                 summarize();

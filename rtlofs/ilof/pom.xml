@@ -41,7 +41,7 @@
       <artifactId>dotenv-java</artifactId>
     </dependency>
     <dependency>
-        <groupId>capstone</groupId>
+        <groupId>be.tarsos.lsh</groupId>
         <artifactId>lsh</artifactId>
         <version>1.0-SNAPSHOT</version>
     </dependency>

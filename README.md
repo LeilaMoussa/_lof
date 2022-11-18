@@ -18,14 +18,14 @@
 - [x] finish and test roc.py (python version problems here)
 - [x] call ilof from rlof
 - [ ] finish rlof.java
-    - [ ] create all collections
-    - [ ] pass them to or import them into ilof
+    - [x] create all collections
+    - [ ] pass and/or import them in and out of ilof
     - [ ] age-based deletion
         - [x] points
-        - [ ] black holes
+        - [x] black holes
     - [x] get multiple black holes the point belongs to and update all of them, including radius
 - [ ] plug TarsosLSH into ILOF
-    - [ ] fix folder structure
+    - [x] fix folder structure
     - [ ] maybe prune out the code i don't need?
 - [ ] generate ROC curve for RLOF
 - [ ] C_LOF skeleton
