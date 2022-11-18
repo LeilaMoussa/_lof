@@ -23,12 +23,12 @@ import java.util.ArrayList;
 import java.util.Optional;
 
 import org.javatuples.Pair;
+
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class ILOF {
 
-  // TODO make set
-  public static HashMap<Point, Point> pointStore;
+  public static HashSet<Point> pointStore;
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
   public static HashMap<Point, Double> kDistances;
   public static HashMap<Pair<Point, Point>, Double> reachDistances;
@@ -38,36 +38,37 @@ public class ILOF {
   public static int k;
   public static int topN;
   public static int topPercent;
+  public static String distanceMeasure;
+  public static String nnsTechnique;
   
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
-  public static int totalPoints;
+  public static long totalPoints;
 
   public static void getTarsosLshkNN(Point point) {
+    // TODO fix folder structure and packages to be able to use LSH
+    HashFamily hashFamily;
+    switch (distanceMeasure) {
+      case "EUCLIDEAN": hashFamily = new EuclidianHashFamily(/*radiusEuclidean,dimensions*/); break;
+      case "MANHATTAN": hashFamily = new CityBlockHashFamily(/*radiusCityBlock,dimensions*/); break;
+      default: System.out.println("Unsupported distance measure.");
+    }
     // params:
     // List<Vector> dataset
     // HashFamily family
     // int numberOfHashes
     // int numberOfHashTables
     // List<Vector> queries
-    // int numberOfNeighbours
-    // might have to modify it to instead of printing the result, returning it
-    // copy paste relevant code from tarsos with citation?
-  }
+    // int numberOfNeighbours = k (but again, not quite)
 
-  public static void getkNN(Point point, String nnTechnique) {
-    switch (nnTechnique) {
-      case "FLAT": getFlatkNN(point); return;
-      case "LSH": getTarsosLshkNN(point); return;
-      default: System.out.println("Unsupported nearest neighbor search technique.");
-    }
+    lshSearch(dataset, family, numberOfHashes, numberOfHashTables, Arrays.asList(), numberOfNeighbours);
   }
 
   public static void getFlatkNN(Point point) {
     try {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
-      pointStore.values().forEach(otherPoint -> {
+      pointStore.forEach(otherPoint -> {
         if (otherPoint.equals(point)) return;
-        double distance = point.getDistanceTo(otherPoint, "EUCLIDEAN");
+        double distance = point.getDistanceTo(otherPoint, distanceMeasure);
         distances.add(new Pair<Point, Double>(otherPoint, distance));
       });
       distances.sort(PointComparator.comparator());
@@ -91,11 +92,19 @@ public class ILOF {
     }
   }
 
+  public static void getkNN(Point point, String nnsTechnique) {
+    switch (nnsTechnique) {
+      case "FLAT": getFlatkNN(point); return;
+      case "LSH": getTarsosLshkNN(point); return;
+      default: System.out.println("Unsupported nearest neighbor search technique.");
+    }
+  }
+
   public static void getRds(Point point) {
     try {
       kNNs.get(point).forEach(neighbor -> {
         double reachDist = Math.max(kDistances.get(neighbor.getValue0()), 
-                                    point.getDistanceTo(neighbor.getValue0(), "EUCLIDEAN"));
+                                    point.getDistanceTo(neighbor.getValue0(), distanceMeasure));
         Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
         reachDistances.put(pair, reachDist);
       });
@@ -116,7 +125,7 @@ public class ILOF {
   public static HashSet<Point> getRkNN(Point point) {
     HashSet<Point> rknn = new HashSet<>();
     try {
-      pointStore.values().forEach(otherPoint -> {
+      pointStore.forEach(otherPoint -> {
         if (isNeighborOf(point, otherPoint)) {
           rknn.add(otherPoint);
         }
@@ -130,9 +139,9 @@ public class ILOF {
   public static HashSet<Point> computeRkNN(Point point) {
     HashSet<Point> rknn = new HashSet<>();
     try {
-      pointStore.values().forEach(x -> {
+      pointStore.forEach(x -> {
         if (x.equals(point)) return;
-        double dist = point.getDistanceTo(x, "EUCLIDEAN");
+        double dist = point.getDistanceTo(x, distanceMeasure);
         if (dist <= kDistances.get(x)) {
           rknn.add(x);
         }
@@ -213,7 +222,7 @@ public class ILOF {
   }
 
   public static void setup(Dotenv config) {
-    pointStore = new HashMap<>();
+    pointStore = new HashSet<>();
     kNNs = new HashMap<>();
     kDistances = new HashMap<>();
     reachDistances = new HashMap<>();
@@ -222,19 +231,21 @@ public class ILOF {
     k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
     topN = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
     topPercent = Optional.ofNullable(Integer.parseInt(config.get("TOP_PERCENT_OUTLIERS"))).orElse(5);
+    distanceMeasure = config.get("DISTANCE_MEASURE");
     topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(topN).create();
     totalPoints = 0;
+    nnsTechnique = config.get("ANNS");
   }
 
   public static void computeProfileAndMaintainWindow(Point point) {
     // This function assumes active points are in pointStore
-    getFlatkNN(point);
+    getkNN(point, nnsTechnique);
     getRds(point);
     HashSet<Point> update_kdist = computeRkNN(point);
     for (Point to_update : update_kdist) {
       // TODO: i could write updatekDist() that performs the update logic from querykNN()
       // for slightly better performance => i should do this (i.e. push and pop logic)
-      getFlatkNN(to_update);
+      getkNN(to_update, nnsTechnique);
     }
     HashSet<Point> update_lrd = new HashSet<>(update_kdist);
     for (Point to_update : update_kdist) {
@@ -243,7 +254,7 @@ public class ILOF {
         // NOTE: following not from ILOF paper, but without it, reach_dist(old, new) wouldn't exist.
         reachDistances.put(new Pair<>(to_update, neigh.getValue0()),
                           Math.max(
-                            to_update.getDistanceTo(neigh.getValue0(), "EUCLIDEAN"),
+                            to_update.getDistanceTo(neigh.getValue0(), distanceMeasure),
                             kDistances.get(neigh.getValue0())
                           ));
         
@@ -275,11 +286,11 @@ public class ILOF {
   public static void process(KStream<String, Point> data, Dotenv config) {
     setup(config);
     data.foreach((key, point) -> {
-      pointStore.put(point, point);
+      pointStore.add(point);
       totalPoints++;
       computeProfileAndMaintainWindow(point);
       if (totalPoints == 500) {
-        pointStore.values().forEach(x -> {
+        pointStore.forEach(x -> {
           System.out.println(x + "" + kNNs.get(x).size() + " " + LRDs.get(x) + " " + LOFs.get(x));
         });
       }

@@ -124,5 +124,6 @@
     <module>ilof</module>
     <module>rlof</module>
     <module>clof</module>
+    <module>lsh</module>
   </modules>
 </project>

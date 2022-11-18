@@ -6,8 +6,7 @@ public class Parser {
 
     public static Point parse(String rawData, String sep, int d) {
         String[] split = rawData.toLowerCase().split(sep);
-        // Assuming all attributes are doubles.
-        // TODO: account for different data types in .env.
+        // Assuming all attributes are doubles, this is the same assumption TarsosLSH makes.
         ArrayList<Double> parsed = new ArrayList<>(d);
         for (String word : split) {
             parsed.add(Double.parseDouble(word));
