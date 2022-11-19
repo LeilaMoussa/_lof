@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Optional;
 
 import org.javatuples.Pair;
+import org.javatuples.Triplet;
+
 import io.github.cdimascio.dotenv.Dotenv;
 
 import be.tarsos.lsh.CommandLineInterface;
@@ -63,6 +65,20 @@ public class ILOF {
     }
 
     // TODO if I want to save the same hyperplanes etc. I need some more work here.
+
+    // VP: need to find a way to pass vps too as Vectors
+    // but they need to have coordinates
+    // i'll try to calculate their coordinates from the center
+    // but this is only okay when d=2: (x+R, y), (x, y+R), (x-R, y), (x, y-R)
+
+    // use this solution for d dimensions
+    // and abandon VPoint?
+    // because otherwise, i'm restricted to V=4 and d=2
+    // https://math.stackexchange.com/a/1585996
+    // maybe if i keep V=4, i can keep using these hardcoded distances with any d
+
+    // here too, instead of actually manipulating v*vps, add each blackhole V times
+
     CommandLineInterface.lshSearch(pointStore.stream().map(Point::toVector).collect(Collectors.toList()),
               hashFamily,
               HASHES,
@@ -74,6 +90,9 @@ public class ILOF {
   public static void getFlatkNN(Point point) {
     try {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
+      // VP: need to iterate over vps too
+      // or instead of actually persisting v*vps
+      // iterate over blackholes and for each blackhole, add a vp V times to distances
       pointStore.forEach(otherPoint -> {
         if (otherPoint.equals(point)) return;
         double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
@@ -248,16 +267,7 @@ public class ILOF {
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
   }
 
-  public static void ilofSubroutine(Point point) {
-    // setup() should not have been called at all here, so the static collections in this class
-    // are uninitialized
-    // so if i initialize them with all these references at each iteration
-    // i don't have to change the function below
-    // but then, i need to return values, which i could do with a set of all these collections
-    // i want to find a way to share the same collections, no duplicates
-    // init them in rlof, import them here, make all collections here point to those that are imported
-    // make sure to disambiguate the names
-    // when the below function executes, the aliases are used and the referenced collections are mutated
+  public static void ilofSubroutineForRlof(Point point, HashSet<Triplet<Point, Double, Integer>> blackHoles) {
     pointStore = RLOF.window;
     kNNs = RLOF.kNNs;
     kDistances = RLOF.kDistances;
@@ -265,18 +275,16 @@ public class ILOF {
     LRDs = RLOF.LRDs;
     LOFs = RLOF.LOFs;
     // TODO most probably other stuff related to vps
+    // ilof needs to know about vps
+    // this means putting them in pointstore and all other collections
+    // but we don't want them messing with the collections in rlof
+    // guess i'll just keep them separate
+    // for each blackhole, make V*vps
+    // maybe i should do this in summarize(), right when the BH is created
     computeProfileAndMaintainWindow(point);
   }
 
   public static void computeProfileAndMaintainWindow(Point point) {
-    // This function assumes relevant collections (pointStore + all profile collections)
-    // contain the right data from the previous iteration
-    // whether called from driver (standalone) or from another algorithm
-    // standalone mode is handled
-    // when called from another algorithm, i'll try to pass these collections as input
-    // and hope they get mutated properly
-    // so i really need another function
-
     getkNN(point, NNS_TECHNIQUE);
     getRds(point);
     HashSet<Point> update_kdist = computeRkNN(point);

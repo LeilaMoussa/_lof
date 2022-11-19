@@ -14,7 +14,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class RLOF {
 
-    public static HashSet<Point> window ;
+    public static HashSet<Point> window;
     public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
     public static HashMap<Point, Double> kDistances;
     public static HashMap<Pair<Point, Point>, Double> reachDistances;
@@ -22,6 +22,8 @@ public class RLOF {
     public static HashMap<Point, Double> LOFs;
 
     public static HashSet<Triplet<Point, Double, Integer>> blackHoles; // Center, Radius, Number
+    // does this defeat the whole purpose of summarization?
+    public static HashSet<VPoint> vps;
     // profiles of vps, where the keys are the blackhole centers
     public static HashMap<Point, Double> vpKdists;
     public static HashMap<Point, Double> vpRds;
@@ -48,6 +50,15 @@ public class RLOF {
         return found;
     }
 
+    public static double getAverageRdtoNeighbors(Point point) {
+        double ans = 0;
+        for (Pair<Point,Double> pair : kNNs.get(point)) {
+            Point neigh = pair.getValue0();
+            ans += reachDistances.get(new Pair<>(point, neigh));
+        }
+        return ans / kNNs.get(point).size();
+    }
+
     public static void summarize() {
         final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
         MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
@@ -69,10 +80,12 @@ public class RLOF {
             toDelete.addAll(neighbors);
             int number = neighbors.size() + 1;
             blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
+            // maybe make V*vps here
+            // so much memory consumption!
             double avgKdist = 0, avgRd = 0, avgLrd = 0;
             for (Point neighbor : neighbors) {
                 avgKdist += kDistances.get(neighbor);
-                avgRd += reachDistances.get(neighbor); // TODO: need to average multiple rds!
+                avgRd += getAverageRdtoNeighbors(neighbor);
                 avgLrd += LRDs.get(neighbor);
             }
             // hack:
@@ -96,7 +109,7 @@ public class RLOF {
         Point center = blackHole.getValue0();
         int number = blackHole.getValue2();
         double newAvgKdist = (vpKdists.get(center) * number + kDistances.get(point)) / (number + 1);
-        double newAvgRd = (vpRds.get(center) * number + reachDistances.get(point)) / (number + 1); // TODO: bad!
+        double newAvgRd = (vpRds.get(center) * number + getAverageRdtoNeighbors(point)) / (number + 1);
         double newAvgLrd = (vpLrds.get(center) * number + LRDs.get(point)) / (number + 1);
         vpKdists.put(center, newAvgKdist);
         vpRds.put(center, newAvgRd);
@@ -145,6 +158,7 @@ public class RLOF {
     }
 
     public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
+        // toDelete is the set of blackhole centers
         blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
         for (Point x : toDelete) {
             vpKdists.remove(x);
@@ -167,7 +181,7 @@ public class RLOF {
         vpLrds = new HashMap<>();
         pointTimestamps = new HashMap<>();
         vpTimestamps = new HashMap<>();
-        
+
         W = Integer.parseInt(config.get("WINDOW"));
         MAX_AGE = Integer.parseInt(config.get("MAX_AGE"));
         DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
@@ -177,7 +191,7 @@ public class RLOF {
     public static void process(KStream<String, Point> data, Dotenv config) {
         // when calling ilof, remember that ilof needs to know about the virtual points too
         // => when calling ilof on a point, insert all the vps "temporarily" into the pointstore that is passed to ilof
-        // with coordinatess such that they are positioned to achieve abs(d-R) or sqrt(d²+R²) or d+R
+        // with coordinates such that they are positioned to achieve abs(d-R) or sqrt(d²+R²) or d+R
         // or better yet, pass as separate collection indicating their symDistances are fixed and known
         // but they need to be treated like Points though they don't have coordinates
         setup(config);
@@ -188,7 +202,8 @@ public class RLOF {
             return new KeyValue<Point, HashSet<Triplet<Point, Double, Integer>>>(point, triplets);
         })
         .mapValues((point, triplets) -> {
-            ILOF.ilofSubroutine(point);
+            // HACK, but probably won't make it prettier any time soon.
+            ILOF.ilofSubroutineForRlof(point, blackHoles);
             if (triplets.size() == 0) {
                 window.add(point);
                 pointTimestamps.put(point, ts++);

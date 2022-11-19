@@ -8,7 +8,9 @@ public class Point {
     ArrayList<Double> attributes;
     int dim;
 
-    Point(int d, ArrayList<Double> parsed) {
+    protected Point() { }
+
+    public Point(int d, ArrayList<Double> parsed) {
       this.dim = d;
       this.attributes = parsed;
     }
