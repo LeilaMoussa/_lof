@@ -237,7 +237,7 @@ public class LSH {
 		return ret;
 	}
 	
-	static double determineRadius(List<Vector> dataset,DistanceMeasure measure,int timeout){
+	public static double determineRadius(List<Vector> dataset,DistanceMeasure measure,int timeout){
 		 ExecutorService executor = Executors.newSingleThreadExecutor();
 		 double radius = 0.0;
 		 DetermineRadiusTask drt = new DetermineRadiusTask(dataset,measure);

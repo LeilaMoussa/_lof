@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -29,6 +30,7 @@ import org.javatuples.Triplet;
 import io.github.cdimascio.dotenv.Dotenv;
 
 import be.tarsos.lsh.CommandLineInterface;
+import be.tarsos.lsh.*;
 import be.tarsos.lsh.families.*;
 
 public class ILOF {
@@ -57,10 +59,16 @@ public class ILOF {
 
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
+    List<Vector> dataset = pointStore.stream().map(Point::toVector).collect(Collectors.toList());    
     switch (DISTANCE_MEASURE) {
-      // TODO get these radii
-      case "EUCLIDEAN": hashFamily = new EuclidianHashFamily(0, d); break; // radiusEuclidean
-      case "MANHATTAN": hashFamily = new CityBlockHashFamily(0, d); break; // radiusCityBlock
+      case "EUCLIDEAN":
+        int radiusEuclidean = (int) LSH.determineRadius(dataset, new EuclideanDistance(), 20);
+        hashFamily = new EuclidianHashFamily(radiusEuclidean, d);
+        break;
+      case "MANHATTAN":
+        int radiusCityBlock = (int) LSH.determineRadius(dataset, new CityBlockDistance(), 20);
+        hashFamily = new CityBlockHashFamily(radiusCityBlock, d);
+        break;
       default: System.out.println("Unsupported distance measure.");
     }
 
@@ -79,7 +87,7 @@ public class ILOF {
 
     // here too, instead of actually manipulating v*vps, add each blackhole V times
 
-    CommandLineInterface.lshSearch(pointStore.stream().map(Point::toVector).collect(Collectors.toList()),
+    CommandLineInterface.lshSearch(dataset,
               hashFamily,
               HASHES,
               HASHTABLES,
@@ -267,13 +275,23 @@ public class ILOF {
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
   }
 
-  public static void ilofSubroutineForRlof(Point point, HashSet<Triplet<Point, Double, Integer>> blackHoles) {
-    pointStore = RLOF.window;
-    kNNs = RLOF.kNNs;
-    kDistances = RLOF.kDistances;
-    reachDistances = RLOF.reachDistances;
-    LRDs = RLOF.LRDs;
-    LOFs = RLOF.LOFs;
+  public static void ilofSubroutineForRlof(Point point,
+                                          HashSet<Point> window,
+                                          HashMap<Point, PriorityQueue<Pair<Point, Double>>> rlofkNNs,
+                                          HashMap<Point, Double> rlofkDistances,
+                                          HashMap<Pair<Point, Point>, Double> rlofreachDistances,
+                                          HashMap<Point, Double> rlofLRDs,
+                                          HashMap<Point, Double> rlofLOFs,
+                                          HashSet<Triplet<Point, Double, Integer>> blackHoles) {
+    // hopefully, these act as aliases
+    // reminder to self: i did this to avoid circular dependency
+    pointStore = window;
+    kNNs = rlofkNNs;
+    kDistances = rlofkDistances;
+    reachDistances = rlofreachDistances;
+    LRDs = rlofLRDs;
+    LOFs = rlofLOFs;
+
     // TODO most probably other stuff related to vps
     // ilof needs to know about vps
     // this means putting them in pointstore and all other collections

@@ -26,8 +26,8 @@
     - [x] get multiple black holes the point belongs to and update all of them, including radius
     - [ ] decide on how ilof treats virtual points (in progress, pretty messy)
     - [x] average reachdist logic
-- [ ] plug TarsosLSH into ILOF
+- [x] plug TarsosLSH into ILOF
     - [x] fix folder structure
-    - [ ] look at radius business
+    - [x] look at radius business
 - [ ] generate ROC curve for RLOF
-- [ ] C_LOF skeleton
+- [ ] C_LOF skeleton (?)

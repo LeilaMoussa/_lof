@@ -203,7 +203,14 @@ public class RLOF {
         })
         .mapValues((point, triplets) -> {
             // HACK, but probably won't make it prettier any time soon.
-            ILOF.ilofSubroutineForRlof(point, blackHoles);
+            ILOF.ilofSubroutineForRlof(point,
+                                    window,
+                                    kNNs,
+                                    kDistances,
+                                    reachDistances,
+                                    LRDs,
+                                    LOFs,
+                                    blackHoles);
             if (triplets.size() == 0) {
                 window.add(point);
                 pointTimestamps.put(point, ts++);
