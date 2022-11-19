@@ -116,10 +116,11 @@ public class ILOF {
       for (; i < distances.size() && distances.get(i).getValue1() == kdist; i++) { }
       PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
       if (distances.size() > 0) {
-        // TODO: could turn into addAll for conciseness.
-        distances.subList(0, Math.min(i, distances.size())).forEach(neighbor -> {
-          pq.add(neighbor);
-        });
+        // was:
+        // distances.subList(0, Math.min(i, distances.size())).forEach(neighbor -> {
+        //   pq.add(neighbor);
+        // });
+        pq.addAll(distances.subList(0, Math.min(i, distances.size())));
       }
       kNNs.put(point, pq);
     } catch (Exception e) {
@@ -219,22 +220,26 @@ public class ILOF {
     try {
       // add to max heap of fixed size
       topOutliers.add(new Pair<Point, Double>(point, lof));
-      if (totalPoints == 500) {
-        System.out.println("TOP OUTLIERS");
-        while (topOutliers.size() > 0) {
-          Pair<Point, Double> max = topOutliers.poll();
-          System.out.println(max.getValue0() + " : " + max.getValue1());
-        }
-      }
+      // if (totalPoints == 500) {
+      //   System.out.println("TOP OUTLIERS");
+      //   while (topOutliers.size() > 0) {
+      //     Pair<Point, Double> max = topOutliers.poll();
+      //     System.out.println(max.getValue0() + " : " + max.getValue1());
+      //   }
+      // }
     } catch (Exception e) {
       System.out.println("11 " + e);
     }
     return new KeyValue<Point, Double>(point, lof);
   }
 
+  public static Integer labelPoint(Point point) {
+    return topOutliers.contains(new Pair<Point, Double>(point, LOFs.get(point))) ? 1 : 0;
+  }
+
   public static void main(String[] args) {
     // TODO: better handling of defaults.
-    // NOTE: run from working directory rtlofs.
+    // NOTE: must run from working directory rtlofs.
     Dotenv dotenv = Dotenv.load();
 
     Properties props = new Properties();
@@ -353,31 +358,20 @@ public class ILOF {
       pointStore.add(point);
       totalPoints++;
       computeProfileAndMaintainWindow(point);
-      if (totalPoints == 500) {
-        pointStore.forEach(x -> {
-          System.out.println(x + "" + kNNs.get(x).size() + " " + LRDs.get(x) + " " + LOFs.get(x));
-        });
+      getTopNOutliers(point, LOFs.get(point));
+      if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
+        // pointStore.forEach(x -> {
+        //   System.out.println(x + "" + kNNs.get(x).size() + " " + LRDs.get(x) + " " + LOFs.get(x));
+        // });
+        // TODO figure out when and how labeled data is actually turned into a stream and printed to a file.
+        // for (Point x : pointStore) {
+        //   return new KeyValue<String, Integer>(x.toString(), labelPoint(x));
+        // };
       }
     });
 
-    // TODO: need to write labeled data to sink file
-    // so write function that decides from lof score whether outlier (1) or not (0)
-    // and make stream of flat mapped (key: point, value: label)
-    // print stream to sink file then make materialize as topic
-
-    //lofScores.map((point, lof) -> getTopNOutliers(point, lof)); // let's ignore this function for now...
-
-    // lofScores is a stream of (point, lof) keyvalues where the keys may be repeated
-    // convert to ktable to get the latest value per point, hopefully
-    // i can query this name
-    //KTable<Point, Double> latestLofScores = lofScores.toTable(Materialized.as("latest-lof-scores"));
-
-    // not sure what happens when i turn the table back into a stream
-    //latestLofScores.toStream().print(Printed.toFile(config.get("SINK_FILE")));
-
-    // OR...
     // final Serde<String> stringSerde = Serdes.String();
-    // lofScores.toStream().to("mouse-outliers-topic", Produced.with(stringSerde, stringSerde));
+    // <some_stream>.toStream().to("some-topic", Produced.with(stringSerde, stringSerde));
 
   }
 }
