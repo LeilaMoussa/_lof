@@ -354,21 +354,23 @@ public class ILOF {
 
   public static void process(KStream<String, Point> data, Dotenv config) {
     setup(config);
-    data.foreach((key, point) -> {
+    KStream<String, Integer> labeledData = data.flatMap((key, point) -> {
       pointStore.add(point);
       totalPoints++;
       computeProfileAndMaintainWindow(point);
       getTopNOutliers(point, LOFs.get(point));
+      // The following condition is only relevant for testing.
+      ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
-        // pointStore.forEach(x -> {
-        //   System.out.println(x + "" + kNNs.get(x).size() + " " + LRDs.get(x) + " " + LOFs.get(x));
-        // });
-        // TODO figure out when and how labeled data is actually turned into a stream and printed to a file.
-        // for (Point x : pointStore) {
-        //   return new KeyValue<String, Integer>(x.toString(), labelPoint(x));
-        // };
+        for (Point x : pointStore) {
+          //System.out.println(x + "" + kNNs.get(x).size() + " " + LRDs.get(x) + " " + LOFs.get(x));
+          mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
+        };
       }
+      return mapped;
     });
+
+    labeledData.print(Printed.toFile(config.get("SINK_TOPIC")));
 
     // final Serde<String> stringSerde = Serdes.String();
     // <some_stream>.toStream().to("some-topic", Produced.with(stringSerde, stringSerde));

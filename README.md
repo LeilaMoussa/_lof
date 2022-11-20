@@ -14,8 +14,8 @@
 - [x] finish refactoring and debugging ILOF (cosmetic changes to be done last, e.g. logging and config defaults)
 - [x] label points as inliers or outliers, start with x%, then topN, then maybe, if i have time, using fixed threshold
 (just went with topN for now, must double check how this works with RLOF)
-- [ ] write results to sink file (3 kinds of results: full profiles, labeled data, just outliers)
-- [ ] also write to sink topic (just outliers and labeled data)
+- [x] write labeled data to sink file
+- [ ] also write to sink topic (TBD: outliers and/or labeled data?)
 - [x] finish and test roc.py (python version problems here)
 - [x] call ilof from rlof
 - [ ] finish rlof.java
