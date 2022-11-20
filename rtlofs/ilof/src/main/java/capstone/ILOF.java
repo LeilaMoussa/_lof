@@ -42,6 +42,7 @@ public class ILOF {
   public static HashMap<Pair<Point, Point>, Double> reachDistances;
   public static HashMap<Point, Double> LRDs;
   public static HashMap<Point, Double> LOFs;
+  public static HashSet<Triplet<Point, Double, Integer>> blackHoles; // not allocated unless in RLOF
 
   // NOTE: not all these variables are relevant all the time.
   // Conditional initialization? Eh...
@@ -53,12 +54,14 @@ public class ILOF {
   public static String NNS_TECHNIQUE;
   public static int HASHES;
   public static int HASHTABLES;
+  public static int V;
 
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
 
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
+    // VPs need coordinates here
     List<Vector> dataset = pointStore.stream().map(Point::toVector).collect(Collectors.toList());    
     switch (DISTANCE_MEASURE) {
       case "EUCLIDEAN":
@@ -98,13 +101,18 @@ public class ILOF {
   public static void getFlatkNN(Point point) {
     try {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
-      // VP: need to iterate over vps too
-      // or instead of actually persisting v*vps
-      // iterate over blackholes and for each blackhole, add a vp V times to distances
       pointStore.forEach(otherPoint -> {
         if (otherPoint.equals(point)) return;
         double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
         distances.add(new Pair<Point, Double>(otherPoint, distance));
+      });
+      // TODO: is it reasonable to be selective of the blackholess we iterate over?
+      blackHoles.forEach(bh -> {
+        for (int i = 0; i < V; i++) {
+          VPoint vp = new VPoint(Position.valueOfLabel(i), bh.getValue0(), bh.getValue1());
+          double distance = vp.getDistanceTo(point, DISTANCE_MEASURE); // returns one of 3 distinct possible values
+          distances.add(new Pair<Point, Double>(vp, distance));
+        }
       });
       distances.sort(PointComparator.comparator());
       double kdist = 0;
@@ -161,11 +169,14 @@ public class ILOF {
   public static HashSet<Point> getRkNN(Point point) {
     HashSet<Point> rknn = new HashSet<>();
     try {
+      // O(W * k)
       pointStore.forEach(otherPoint -> {
         if (isNeighborOf(point, otherPoint)) {
           rknn.add(otherPoint);
         }
       });
+      // VPs don't have neighborhoods => they can't be reverse neighbors at all?
+
     } catch (Exception e) {
       System.out.println("getRkNN " + e);
     }
@@ -182,6 +193,7 @@ public class ILOF {
           rknn.add(x);
         }
       });
+      // iterate over VPs too, making sure the overriden getDistanceTo gets called
     } catch (Exception e) {
       System.out.println("computeRkNN " + e);
     }
@@ -278,6 +290,7 @@ public class ILOF {
     d = Integer.parseInt(config.get("DIMENSIONS"));
     HASHES = Integer.parseInt(config.get("HASHES"));
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
+    V = Integer.parseInt(config.get("VIRTUAL_POINTS"));
   }
 
   public static void ilofSubroutineForRlof(Point point,
@@ -287,7 +300,7 @@ public class ILOF {
                                           HashMap<Pair<Point, Point>, Double> rlofreachDistances,
                                           HashMap<Point, Double> rlofLRDs,
                                           HashMap<Point, Double> rlofLOFs,
-                                          HashSet<Triplet<Point, Double, Integer>> blackHoles) {
+                                          HashSet<Triplet<Point, Double, Integer>> rlofBlackHoles) {
     // hopefully, these act as aliases
     // reminder to self: i did this to avoid circular dependency
     pointStore = window;
@@ -296,14 +309,8 @@ public class ILOF {
     reachDistances = rlofreachDistances;
     LRDs = rlofLRDs;
     LOFs = rlofLOFs;
+    blackHoles = new HashSet<>(rlofBlackHoles);
 
-    // TODO most probably other stuff related to vps
-    // ilof needs to know about vps
-    // this means putting them in pointstore and all other collections
-    // but we don't want them messing with the collections in rlof
-    // guess i'll just keep them separate
-    // for each blackhole, make V*vps
-    // maybe i should do this in summarize(), right when the BH is created
     computeProfileAndMaintainWindow(point);
   }
 

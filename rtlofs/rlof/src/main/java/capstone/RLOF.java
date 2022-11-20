@@ -189,11 +189,6 @@ public class RLOF {
     }
     
     public static void process(KStream<String, Point> data, Dotenv config) {
-        // when calling ilof, remember that ilof needs to know about the virtual points too
-        // => when calling ilof on a point, insert all the vps "temporarily" into the pointstore that is passed to ilof
-        // with coordinates such that they are positioned to achieve abs(d-R) or sqrt(d²+R²) or d+R
-        // or better yet, pass as separate collection indicating their symDistances are fixed and known
-        // but they need to be treated like Points though they don't have coordinates
         setup(config);
 
         data

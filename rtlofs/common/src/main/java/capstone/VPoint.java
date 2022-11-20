@@ -11,7 +11,7 @@ public class VPoint extends Point {
     public double R;
     final Point center;
 
-    public VPoint(Position pos, double radius, Point center) {
+    public VPoint(Position pos, Point center, double radius) {
         this.attributes = new ArrayList<>(0);
         this.dim = 0;
         this.pos = pos;
@@ -31,11 +31,14 @@ public class VPoint extends Point {
         switch (this.pos) {
             case RIGHT: return d-R;
             case LEFT: return d+R;
-            case TOPBOTTOM:
+            case TOP:
+            case BOTTOM:
                 if (distanceMeasure.equals("EUCLIDEAN")) {
                     return Math.sqrt(Math.pow(d, 2) + Math.pow(R, 2));
                 } else if (distanceMeasure.equals("MANHATTAN")) {
                     return d+R;
+                } else {
+                    System.out.println("Unsupported distance measure");
                 }
         }
         return null;

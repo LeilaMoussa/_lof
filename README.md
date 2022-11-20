@@ -26,7 +26,9 @@
         - [x] black holes
     - [x] get multiple black holes the point belongs to and update all of them, including radius
     - [ ] decide on how ilof treats virtual points (in progress, pretty messy)
+        - [ ] virtual points as reverse neighbors?
     - [x] average reachdist logic
+        - [ ] account for usage of rds of virtual points
 - [x] plug TarsosLSH into ILOF
     - [x] fix folder structure
     - [x] look at radius business
