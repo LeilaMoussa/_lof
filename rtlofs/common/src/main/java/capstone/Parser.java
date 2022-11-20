@@ -9,7 +9,13 @@ public class Parser {
         // Assuming all attributes are doubles, this is the same assumption TarsosLSH makes.
         ArrayList<Double> parsed = new ArrayList<>(d);
         for (String word : split) {
-            parsed.add(Double.parseDouble(word));
+            Double doubleVal = null;
+            try {
+                doubleVal = Double.parseDouble(word);
+            } catch (NumberFormatException nfe) {
+                doubleVal = word.hashCode() * 1.0;
+            }
+            parsed.add(doubleVal);
         }
         return new Point(d, parsed);
     }
