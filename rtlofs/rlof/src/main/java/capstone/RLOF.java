@@ -41,130 +41,162 @@ public class RLOF {
 
     public static HashSet<Triplet<Point, Double, Integer>> findBlackholeIfAny(Point point) {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
-        for (Triplet<Point, Double, Integer> triplet : blackHoles) {
-            double distance = point.getDistanceTo(triplet.getValue0(), DISTANCE_MEASURE);
-            if (distance <= triplet.getValue1()) {
-                found.add(triplet);
+        try {
+            for (Triplet<Point, Double, Integer> triplet : blackHoles) {
+                double distance = point.getDistanceTo(triplet.getValue0(), DISTANCE_MEASURE);
+                if (distance <= triplet.getValue1()) {
+                    found.add(triplet);
+                }
             }
+        } catch (Exception e) {
+            System.out.println("findBlackholeIfAny " + e + e.getStackTrace()[0].getLineNumber());
         }
         return found;
     }
 
     public static double getAverageRdtoNeighbors(Point point) {
         double ans = 0;
-        for (Pair<Point,Double> pair : kNNs.get(point)) {
-            Point neigh = pair.getValue0();
-            ans += reachDistances.get(new Pair<>(point, neigh));
+        try {
+            for (Pair<Point,Double> pair : kNNs.get(point)) {
+                Point neigh = pair.getValue0();
+                ans += reachDistances.get(new Pair<>(point, neigh));
+            }
+            return ans / kNNs.get(point).size();
+        } catch (Exception e) {
+            System.out.println("getAverageRdtoNeighbors " + e + e.getStackTrace()[0].getLineNumber());
         }
-        return ans / kNNs.get(point).size();
+        return 0;
     }
 
     public static void summarize() {
-        final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
-        MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
-                                                            .orderedBy(PointComparator.comparator().reversed())
-                                                            .maximumSize(numberTopInliers)
-                                                            .create();
-        for (Point point : window) {
-            sorted.add(new Pair<Point, Double>(point, LOFs.get(point)));
-        }
-        HashSet<Point> toDelete = new HashSet<>();
-        for (Pair<Point,Double> inlier : sorted) {
-            Point center = inlier.getValue0();
-            toDelete.add(center);
-            double radius = kDistances.get(center);
-            HashSet<Point> neighbors = new HashSet<>();
-            for (Pair<Point,Double> n : kNNs.get(center)) {
-                neighbors.add(n.getValue0());
+        try {
+            final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
+            MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
+                                                                .orderedBy(PointComparator.comparator().reversed())
+                                                                .maximumSize(numberTopInliers)
+                                                                .create();
+            for (Point point : window) {
+                sorted.add(new Pair<Point, Double>(point, LOFs.get(point)));
             }
-            toDelete.addAll(neighbors);
-            int number = neighbors.size() + 1;
-            blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
-            // maybe make V*vps here
-            // so much memory consumption!
-            double avgKdist = 0, avgRd = 0, avgLrd = 0;
-            for (Point neighbor : neighbors) {
-                avgKdist += kDistances.get(neighbor);
-                avgRd += getAverageRdtoNeighbors(neighbor);
-                avgLrd += LRDs.get(neighbor);
-            }
-            // hack:
-            if (neighbors.size() == 0) {
-                System.out.println("neighbors size should not be 0!");
-                System.exit(1);
-            }
-            avgKdist /= neighbors.size();
-            avgRd /= neighbors.size();
-            avgLrd /= neighbors.size();
+            HashSet<Point> toDelete = new HashSet<>();
+            for (Pair<Point,Double> inlier : sorted) {
+                Point center = inlier.getValue0();
+                toDelete.add(center);
+                double radius = kDistances.get(center);
+                HashSet<Point> neighbors = new HashSet<>();
+                for (Pair<Point,Double> n : kNNs.get(center)) {
+                    neighbors.add(n.getValue0());
+                }
+                toDelete.addAll(neighbors);
+                int number = neighbors.size() + 1;
+                blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
+                // maybe make V*vps here
+                // so much memory consumption!
+                double avgKdist = 0, avgRd = 0, avgLrd = 0;
+                for (Point neighbor : neighbors) {
+                    avgKdist += kDistances.get(neighbor);
+                    avgRd += getAverageRdtoNeighbors(neighbor);
+                    avgLrd += LRDs.get(neighbor);
+                }
+                // hack:
+                if (neighbors.size() == 0) {
+                    System.out.println("neighbors size should not be 0!");
+                    System.exit(1);
+                }
+                avgKdist /= neighbors.size();
+                avgRd /= neighbors.size();
+                avgLrd /= neighbors.size();
 
-            vpKdists.put(center, avgKdist);
-            vpRds.put(center, avgRd);
-            vpLrds.put(center, avgLrd);
-            vpTimestamps.put(center, ts); // ts is only incremented when a new real point joins
+                vpKdists.put(center, avgKdist);
+                vpRds.put(center, avgRd);
+                vpLrds.put(center, avgLrd);
+                vpTimestamps.put(center, ts); // ts is only incremented when a new real point joins
+            }
+            fullyDeleteRealPoints(toDelete);
+        } catch (Exception e) {
+            System.out.println("summarize " + e + e.getStackTrace()[0].getLineNumber());
         }
-        fullyDeleteRealPoints(toDelete);
     }
 
     public static void updateVps(Triplet<Point, Double, Integer> blackHole, Point point) {
-        Point center = blackHole.getValue0();
-        int number = blackHole.getValue2();
-        double newAvgKdist = (vpKdists.get(center) * number + kDistances.get(point)) / (number + 1);
-        double newAvgRd = (vpRds.get(center) * number + getAverageRdtoNeighbors(point)) / (number + 1);
-        double newAvgLrd = (vpLrds.get(center) * number + LRDs.get(point)) / (number + 1);
-        vpKdists.put(center, newAvgKdist);
-        vpRds.put(center, newAvgRd);
-        vpLrds.put(center, newAvgLrd);
-        double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
-        blackHoles.remove(blackHole);
-        blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
-        vpTimestamps.put(center, 0L);
+        try {
+            Point center = blackHole.getValue0();
+            int number = blackHole.getValue2();
+            double newAvgKdist = (vpKdists.get(center) * number + kDistances.get(point)) / (number + 1);
+            double newAvgRd = (vpRds.get(center) * number + getAverageRdtoNeighbors(point)) / (number + 1);
+            double newAvgLrd = (vpLrds.get(center) * number + LRDs.get(point)) / (number + 1);
+            vpKdists.put(center, newAvgKdist);
+            vpRds.put(center, newAvgRd);
+            vpLrds.put(center, newAvgLrd);
+            double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
+            blackHoles.remove(blackHole);
+            blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
+            vpTimestamps.put(center, 0L);
+        } catch (Exception e) {
+            System.out.println("updateVps " + e + e.getStackTrace()[0].getLineNumber());
+        }
+        
     }
 
     public static void ageBasedDeletion() {
         // but do we do this in batch? Because otherwise, this is equivalent to dequeueing every time we enqueue
         // and in this case since i'm not quite using a queue, it's a loop every time!
-        HashSet<Point> toDelete = new HashSet<>();
-        pointTimestamps.entrySet().forEach(entry -> {
-            if (entry.getValue() > MAX_AGE) {
-                toDelete.add(entry.getKey());
-            }
-        });
-        fullyDeleteRealPoints(toDelete);
-        // now for the vps:
-        toDelete.clear();
-        vpTimestamps.entrySet().forEach(entry -> {
-            if (entry.getValue() > MAX_AGE) {
-                toDelete.add(entry.getKey());
-            }
-        });
-        fullyDeleteVirtualPoints(toDelete);
+        try {
+            HashSet<Point> toDelete = new HashSet<>();
+            pointTimestamps.entrySet().forEach(entry -> {
+                if (entry.getValue() > MAX_AGE) {
+                    toDelete.add(entry.getKey());
+                }
+            });
+            fullyDeleteRealPoints(toDelete);
+            // now for the vps:
+            toDelete.clear();
+            vpTimestamps.entrySet().forEach(entry -> {
+                if (entry.getValue() > MAX_AGE) {
+                    toDelete.add(entry.getKey());
+                }
+            });
+            fullyDeleteVirtualPoints(toDelete);
+        } catch (Exception e) {
+            System.out.println("ageBasedDeletion " + e + e.getStackTrace()[0].getLineNumber());
+        }
+        
     }
 
     public static void fullyDeleteRealPoints(HashSet<Point> toDelete) {
-        window.removeAll(toDelete);
-        for (Point x : toDelete) {
-            kNNs.remove(x);
-            kDistances.remove(x);
-            LRDs.remove(x);
-            LOFs.remove(x);
-            pointTimestamps.remove(x);
-            // This is not great code...
-            for (Entry<Pair<Point,Point>,Double> entry : reachDistances.entrySet()) {
-                if (entry.getKey().getValue0().equals(x) || entry.getKey().getValue1().equals(x)) {
-                    reachDistances.remove(entry.getKey()); // probably bad to delete within loop?
+        try {
+            window.removeAll(toDelete);
+            for (Point x : toDelete) {
+                kNNs.remove(x);
+                kDistances.remove(x);
+                LRDs.remove(x);
+                LOFs.remove(x);
+                pointTimestamps.remove(x);
+                // This is not great code...
+                for (Entry<Pair<Point,Point>,Double> entry : reachDistances.entrySet()) {
+                    if (entry.getKey().getValue0().equals(x) || entry.getKey().getValue1().equals(x)) {
+                        reachDistances.remove(entry.getKey()); // probably bad to delete within loop?
+                    }
                 }
             }
+        } catch (Exception e) {
+            System.out.println("fullyDeleteRealPoints " + e + e.getStackTrace()[0].getLineNumber());
         }
+        
     }
 
     public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
         // toDelete is the set of blackhole centers
-        blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
-        for (Point x : toDelete) {
-            vpKdists.remove(x);
-            vpRds.remove(x);
-            vpLrds.remove(x);
-            vpTimestamps.remove(x);
+        try {
+            blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
+            for (Point x : toDelete) {
+                vpKdists.remove(x);
+                vpRds.remove(x);
+                vpLrds.remove(x);
+                vpTimestamps.remove(x);
+            }
+        } catch (Exception e) {
+            System.out.println("fullyDeleteVirtualPoints " + e + e.getStackTrace()[0].getLineNumber());
         }
     }
 

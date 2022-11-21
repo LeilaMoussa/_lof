@@ -12,7 +12,7 @@ def gen(infile: str):
         return data
 
 if __name__ == '__main__':
-    [_, topic_name, source_file, interval_sec] = sys.argv
+    [_, topic_name, source_file, interval_sec, d] = sys.argv
     interval = float(interval_sec)
     data = gen(source_file)
 
@@ -34,8 +34,12 @@ if __name__ == '__main__':
             break
         line = line.strip().strip('\n')
         words = line.split()
-        line = words[0] + " " + words[1]
-        print(count, line)
+        d = int(d)
+        line = ""
+        for i in range(d):
+            line += words[i] + " "
+        line.strip()
+        print(count, " - ", line)
         producer.send(topic_name, line.encode())
         count += 1
         time.sleep(interval)

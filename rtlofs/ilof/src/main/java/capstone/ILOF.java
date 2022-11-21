@@ -7,7 +7,6 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Printed;
@@ -106,14 +105,16 @@ public class ILOF {
         double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
         distances.add(new Pair<Point, Double>(otherPoint, distance));
       });
-      // TODO: is it reasonable to be selective of the blackholess we iterate over?
-      blackHoles.forEach(bh -> {
-        for (int i = 0; i < V; i++) {
-          VPoint vp = new VPoint(Position.valueOfLabel(i), bh.getValue0(), bh.getValue1());
-          double distance = vp.getDistanceTo(point, DISTANCE_MEASURE); // returns one of 3 distinct possible values
-          distances.add(new Pair<Point, Double>(vp, distance));
-        }
-      });
+      // TODO: is it reasonable to be selective of the blackholes we iterate over?
+      if (blackHoles != null) {
+        blackHoles.forEach(bh -> {
+          for (int i = 0; i < V; i++) {
+            VPoint vp = new VPoint(Position.valueOfLabel(i), bh.getValue0(), bh.getValue1());
+            double distance = vp.getDistanceTo(point, DISTANCE_MEASURE); // returns one of 3 distinct possible values
+            distances.add(new Pair<Point, Double>(vp, distance));
+          }
+        });
+      }
       distances.sort(PointComparator.comparator());
       double kdist = 0;
       if (distances.size() > 0) {
@@ -189,7 +190,7 @@ public class ILOF {
       pointStore.forEach(x -> {
         if (x.equals(point)) return;
         double dist = point.getDistanceTo(x, DISTANCE_MEASURE);
-        if (dist <= kDistances.get(x)) {
+        if (kNNs.get(x).size() < k || dist <= kDistances.get(x)) {
           rknn.add(x);
         }
       });
@@ -226,23 +227,6 @@ public class ILOF {
     } catch (Exception e) {
       System.out.println("getLof " + e + e.getStackTrace()[0].getLineNumber());
     }
-  }
-
-  public static KeyValue<Point, Double> getTopNOutliers(Point point, Double lof) {
-    try {
-      // add to max heap of fixed size
-      topOutliers.add(new Pair<Point, Double>(point, lof));
-      // if (totalPoints == 500) {
-      //   System.out.println("TOP OUTLIERS");
-      //   while (topOutliers.size() > 0) {
-      //     Pair<Point, Double> max = topOutliers.poll();
-      //     System.out.println(max.getValue0() + " : " + max.getValue1());
-      //   }
-      // }
-    } catch (Exception e) {
-      System.out.println("11 " + e);
-    }
-    return new KeyValue<Point, Double>(point, lof);
   }
 
   public static Integer labelPoint(Point point) {
@@ -315,69 +299,81 @@ public class ILOF {
   }
 
   public static void computeProfileAndMaintainWindow(Point point) {
-    getkNN(point, NNS_TECHNIQUE);
-    getRds(point);
-    HashSet<Point> update_kdist = computeRkNN(point);
-    for (Point to_update : update_kdist) {
-      // TODO: i could write updatekDist() that performs the update logic from querykNN()
-      // for slightly better performance => i should do this (i.e. push and pop logic)
-      getkNN(to_update, NNS_TECHNIQUE);
-    }
-    HashSet<Point> update_lrd = new HashSet<>(update_kdist);
-    for (Point to_update : update_kdist) {
-      for (Pair<Point, Double> neigh : kNNs.get(to_update)) {
-        reachDistances.put(new Pair<>(neigh.getValue0(), to_update), kDistances.get(to_update));
-        // NOTE: following not from ILOF paper, but without it, reach_dist(old, new) wouldn't exist.
-        reachDistances.put(new Pair<>(to_update, neigh.getValue0()),
-                          Math.max(
-                            to_update.getDistanceTo(neigh.getValue0(), DISTANCE_MEASURE),
-                            kDistances.get(neigh.getValue0())
-                          ));
-        
-        if (neigh.getValue0().equals(point)) {
-          continue;
-        }
-        // NOTE: in ILOF paper, this statement is conditional (if to_update is neighbor of neigh).
-        update_lrd.add(neigh.getValue0());
-        // NOTE: following is not from paper either but from notes.
-        for (Pair<Point,Double> y : kNNs.get(neigh.getValue0())) {
-          update_lrd.add(y.getValue0());
+    try {
+      getkNN(point, NNS_TECHNIQUE);
+      getRds(point);
+      HashSet<Point> update_kdist = computeRkNN(point);
+      for (Point to_update : update_kdist) {
+        // TODO: i could write updatekDist() that performs the update logic from querykNN()
+        // for slightly better performance => i should do this (i.e. push and pop logic)
+        getkNN(to_update, NNS_TECHNIQUE);
+      }
+      HashSet<Point> update_lrd = new HashSet<>(update_kdist);
+      for (Point to_update : update_kdist) {
+        for (Pair<Point, Double> neigh : kNNs.get(to_update)) {
+          reachDistances.put(new Pair<>(neigh.getValue0(), to_update), kDistances.get(to_update));
+          // NOTE: following not from ILOF paper, but without it, reach_dist(old, new) wouldn't exist.
+          reachDistances.put(new Pair<>(to_update, neigh.getValue0()),
+                            Math.max(
+                              to_update.getDistanceTo(neigh.getValue0(), DISTANCE_MEASURE),
+                              kDistances.get(neigh.getValue0())
+                            ));
+          
+          if (neigh.getValue0().equals(point)) {
+            continue;
+          }
+          // NOTE: in ILOF paper, this statement is conditional (if to_update is neighbor of neigh).
+          update_lrd.add(neigh.getValue0());
+          // NOTE: following is not from paper either but from notes.
+          for (Pair<Point,Double> y : kNNs.get(neigh.getValue0())) {
+            update_lrd.add(y.getValue0());
+          }
         }
       }
+      HashSet<Point> update_lof = new HashSet<>(update_lrd);
+      for (Point to_update : update_lrd) {
+        getLrd(to_update);
+        update_lof.addAll(getRkNN(to_update));
+      }
+      // NOTE: in ILOF paper, this was right before getLof(), but getLof(to_update) needs lrd(new).
+      getLrd(point);
+      for (Point to_update : update_lof) {
+        if (to_update.equals(point)) continue;
+        getLof(to_update);
+      }
+      getLof(point);
+    } catch (Exception e) {
+      System.out.println("computeProfileAndMaintainWindow " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
-    HashSet<Point> update_lof = new HashSet<>(update_lrd);
-    for (Point to_update : update_lrd) {
-      getLrd(to_update);
-      update_lof.addAll(getRkNN(to_update));
-    }
-    // NOTE: in ILOF paper, this was right before getLof(), but getLof(to_update) needs lrd(new).
-    getLrd(point);
-    for (Point to_update : update_lof) {
-      if (to_update.equals(point)) continue;
-      getLof(to_update);
-    }
-    getLof(point);
   }
 
   public static void process(KStream<String, Point> data, Dotenv config) {
     setup(config);
-    KStream<String, Integer> labeledData = data.flatMap((key, point) -> {
+    data.flatMap((key, point) -> {
       pointStore.add(point);
       totalPoints++;
       computeProfileAndMaintainWindow(point);
-      getTopNOutliers(point, LOFs.get(point));
+      // getTopNOutliers(point, LOFs.get(point));
       // The following condition is only relevant for testing.
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
         for (Point x : pointStore) {
-          //System.out.println(x + "" + kNNs.get(x).size() + " " + LRDs.get(x) + " " + LOFs.get(x));
+          topOutliers.add(new Pair<Point, Double>(x, LOFs.get(x)));
+        };
+        for (Point x : pointStore) {
+          //System.out.println(x + " " + LOFs.get(x));
+          System.out.println(x + " " + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
         };
       }
       return mapped;
-    });
+    })
+    // TODO: very important, for some reason, not everything is printed
+    // only 454/500 lines are printed
+    // and even the 454th line is cut.
 
-    labeledData.print(Printed.toFile(config.get("SINK_TOPIC")));
+    // TODO: I don't like how this is printed.
+    .print(Printed.toFile(config.get("SINK_FILE")));
 
     // final Serde<String> stringSerde = Serdes.String();
     // <some_stream>.toStream().to("some-topic", Produced.with(stringSerde, stringSerde));

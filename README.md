@@ -29,8 +29,9 @@
         - [ ] virtual points as reverse neighbors?
     - [x] average reachdist logic
         - [ ] account for usage of rds of virtual points
+    - [ ] debug RLOF
 - [x] plug TarsosLSH into ILOF
     - [x] fix folder structure
     - [x] look at radius business
 - [ ] generate ROC curve for RLOF
-- [ ] C_LOF skeleton (?)
+- [ ] C_LOF or MiLOF skeleton (?)

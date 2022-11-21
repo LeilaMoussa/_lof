@@ -29,7 +29,7 @@ public class Point {
           return Math.sqrt(distance);
         case "MANHATTAN":
           for (int i = 0; i < this.dim; i++) {
-            distance += this.getAttribute(i) - other.getAttribute(i);
+            distance += Math.abs(this.getAttribute(i) - other.getAttribute(i));
           }
           return distance;
         default:
