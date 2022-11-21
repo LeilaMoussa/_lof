@@ -89,6 +89,7 @@ public class ILOF {
 
     // here too, instead of actually manipulating v*vps, add each blackhole V times
 
+    // TODO return something from this
     CommandLineInterface.lshSearch(dataset,
               hashFamily,
               HASHES,
@@ -125,10 +126,6 @@ public class ILOF {
       for (; i < distances.size() && distances.get(i).getValue1() == kdist; i++) { }
       PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
       if (distances.size() > 0) {
-        // was:
-        // distances.subList(0, Math.min(i, distances.size())).forEach(neighbor -> {
-        //   pq.add(neighbor);
-        // });
         pq.addAll(distances.subList(0, Math.min(i, distances.size())));
       }
       kNNs.put(point, pq);
@@ -284,9 +281,15 @@ public class ILOF {
                                           HashMap<Pair<Point, Point>, Double> rlofreachDistances,
                                           HashMap<Point, Double> rlofLRDs,
                                           HashMap<Point, Double> rlofLOFs,
-                                          HashSet<Triplet<Point, Double, Integer>> rlofBlackHoles) {
+                                          HashSet<Triplet<Point, Double, Integer>> rlofBlackHoles,
+                                          Dotenv config) {
+    // TODO: There's some overlap between RLOF.setup() and ILOF.setup()
+    setup(config);
     // hopefully, these act as aliases
     // reminder to self: i did this to avoid circular dependency
+
+    // ILOF does not change the pointStore
+    // so it should be allowed to add the point
     pointStore = window;
     kNNs = rlofkNNs;
     kDistances = rlofkDistances;

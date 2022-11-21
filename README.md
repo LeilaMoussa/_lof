@@ -30,6 +30,7 @@
     - [x] average reachdist logic
         - [ ] account for usage of rds of virtual points
     - [ ] debug RLOF
+    - [ ] get labeled data from RLOF
 - [x] plug TarsosLSH into ILOF
     - [x] fix folder structure
     - [x] look at radius business
