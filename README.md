@@ -27,7 +27,7 @@
     - [x] get multiple black holes the point belongs to and update all of them, including radius
     - [ ] decide on how ilof treats virtual points (in progress, pretty messy)
         - [ ] virtual points as reverse neighbors?
-        - [ ] complete V = 2 * d logic
+        - [x] complete V = 2 * d logic
     - [x] average reachdist logic
         - [ ] account for usage of rds of virtual points
     - [ ] debug RLOF

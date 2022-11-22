@@ -115,6 +115,11 @@ public class Vector implements Serializable {
 		return values.length;
 	}
 
+	// Author: Leila
+	public double[] getValues() {
+		return this.values;
+	}
+
 	/**
 	 * Calculates the dot product, or scalar product, of this vector with the
 	 * other vector.

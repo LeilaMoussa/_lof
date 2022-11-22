@@ -1,6 +1,7 @@
 package capstone;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import be.tarsos.lsh.Vector;
 
@@ -40,12 +41,20 @@ public class Point {
 
     public Vector toVector() {
       // NOTE: this is NOT java.util.Vector, this is be.tarsos.lsh.Vector
-      // TODO: make this look nicer
       double[] arr = new double[this.dim];
       for (int i = 0; i < this.dim; i++) {
         arr[i] = this.getAttribute(i);
       }
       return new Vector("", arr); // null key
+    }
+
+    public static Point fromVector(Vector v) {
+      double[] arr = v.getValues();
+      ArrayList<Double> attrs = new ArrayList<>();
+      for (double x : arr) {
+        attrs.add(x);
+      }
+      return new Point(arr.length, attrs);
     }
 
     @Override

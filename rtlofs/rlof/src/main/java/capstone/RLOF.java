@@ -36,6 +36,7 @@ public class RLOF {
     public static HashSet<VPoint> vps;
     // profiles of vps, where the keys are the blackhole centers
     public static HashMap<Point, Double> vpKdists;
+    // TODO: i'm just realizing: these don't matter! remove vprds on next commit!
     public static HashMap<Point, Double> vpRds;
     public static HashMap<Point, Double> vpLrds;
 
@@ -274,6 +275,8 @@ public class RLOF {
                                     LRDs,
                                     LOFs,
                                     blackHoles,
+                                    vpKdists,
+                                    vpLrds,
                                     config);
                 pointTimestamps.put(point, ts++);
             } else {
@@ -286,6 +289,11 @@ public class RLOF {
                 HashMap<Point, Double> deepLrds = new HashMap<>(LRDs);
                 HashMap<Point, Double> deepLofs = new HashMap<>(LOFs);
                 HashSet<Triplet<Point, Double, Integer>> deepBlackHoles = new HashSet<>(blackHoles);
+                // TODO i'm gonna have to take a very good look at the decision i made here
+                // just replicating the same stuff for now
+                HashMap<Point, Double> deepVpKdists = new HashMap<>(vpKdists);
+                HashMap<Point, Double> deepVpLrds = new HashMap<>(vpLrds);
+                
                 ILOF.ilofSubroutineForRlof(point,
                                     deepWindow,
                                     deepkNNs,
@@ -294,6 +302,8 @@ public class RLOF {
                                     deepLrds,
                                     deepLofs,
                                     deepBlackHoles,
+                                    deepVpKdists,
+                                    deepVpLrds,
                                     config);
                 for (Triplet<Point,Double,Integer> triplet : triplets) {
                     updateVps(triplet, point, deepkNNs.get(point), deepkDistances.get(point),

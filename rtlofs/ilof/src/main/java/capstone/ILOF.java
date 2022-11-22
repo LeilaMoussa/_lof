@@ -41,7 +41,10 @@ public class ILOF {
   public static HashMap<Pair<Point, Point>, Double> reachDistances;
   public static HashMap<Point, Double> LRDs;
   public static HashMap<Point, Double> LOFs;
-  public static HashSet<Triplet<Point, Double, Integer>> blackHoles; // not allocated unless in RLOF
+  // the following not allocated unless in RLOF
+  public static HashSet<Triplet<Point, Double, Integer>> blackHoles;
+  public static HashMap<Point, Double> vpKdists;
+  public static HashMap<Point, Double> vpLrds;
 
   // NOTE: not all these variables are relevant all the time.
   // Conditional initialization? Eh...
@@ -60,9 +63,8 @@ public class ILOF {
 
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
-    // VPs need coordinates here
-    // TODO get coordinates, like below, and make List<Vector> from them, and add to dataset
-    List<Vector> dataset = pointStore.stream().map(Point::toVector).collect(Collectors.toList());    
+    List<Vector> dataset = pointStore.stream().map(Point::toVector).collect(Collectors.toList());
+    dataset.addAll(deriveVirtualPoints().stream().map(Point::toVector).collect(Collectors.toList()));
     switch (DISTANCE_MEASURE) {
       case "EUCLIDEAN":
         int radiusEuclidean = (int) LSH.determineRadius(dataset, new EuclideanDistance(), 20);
@@ -75,13 +77,36 @@ public class ILOF {
       default: System.out.println("Unsupported distance measure.");
     }
 
-    // TODO return something from this (probably a pq of Points? or a set?)
-    CommandLineInterface.lshSearch(dataset,
-              hashFamily,
-              HASHES,
-              HASHTABLES,
-              Arrays.asList(point.toVector()),
-              k);
+    // need to have the same effect on kNNs as flatsearch
+    // but in lsh, distances to points don't matter
+    // so simply overwrite the values, and the maxheap logic would never be relevant anyway
+    List<Point> neighbors = CommandLineInterface.lshSearch(dataset,
+                            hashFamily,
+                            HASHES,
+                            HASHTABLES,
+                            Arrays.asList(point.toVector()),
+                            k)
+                            .get(0)
+                            .stream()
+                            .map(Point::fromVector)
+                            .collect(Collectors.toList());
+    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(); // this pq means nothing if ANNS=LSH
+    for (Point n : neighbors) {
+      pq.add(new Pair<Point, Double>(n, 0.0)); // i don't like this dummy double, but it should do
+    }
+    kNNs.put(point, pq);
+  }
+
+  public static ArrayList<VPoint> deriveVirtualPoints() {
+    ArrayList<VPoint> ans = new ArrayList<>();
+    blackHoles.forEach(bh -> {
+      for (int pl = 0; pl < d; pl++) {
+        for (int pos = 0; pos < 2; pos++) {
+          ans.add(new VPoint(bh.getValue0(), bh.getValue1(), d, pl, pos));
+        }
+      }
+    });
+    return ans;
   }
 
   public static void getFlatkNN(Point point) {
@@ -93,16 +118,10 @@ public class ILOF {
         distances.add(new Pair<Point, Double>(otherPoint, distance));
       });
       if (blackHoles != null) {
-        // BH * 2 * d vps are instantiated
-        blackHoles.forEach(bh -> {
-          for (int pl = 0; pl < d; pl++) {
-            for (int pos = 0; pos < 2; pos++) {
-              VPoint vp = new VPoint(bh.getValue0(), bh.getValue1(), d, pl, pos);
-              // important: calling Point.getDistanceTo, not VPoint's getDistanceTo, which will be deprecated
-              double distance = point.getDistanceTo(vp, DISTANCE_MEASURE);
+        ArrayList<VPoint> vps = deriveVirtualPoints();
+        vps.forEach(vp -> {
+          double distance = point.getDistanceTo(vp, DISTANCE_MEASURE);
               distances.add(new Pair<Point, Double>(vp, distance));
-            }
-          }
         });
       }
       distances.sort(PointComparator.comparator());
@@ -133,13 +152,17 @@ public class ILOF {
 
   public static void getRds(Point point) {
     try {
-      kNNs.get(point).forEach(neighbor -> {
-        // neighbor could be vp
-        // distance is ok
-        // kdist needs to be gotten from rlof
-        double reachDist = Math.max(kDistances.get(neighbor.getValue0()), 
-                                    point.getDistanceTo(neighbor.getValue0(), DISTANCE_MEASURE));
-        Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
+      kNNs.get(point).forEach(neighborpair -> {
+        Point neighbor = neighborpair.getValue0();
+        double kdist;
+        if (neighbor instanceof VPoint) {
+          kdist = vpKdists.get(neighbor);
+        } else {
+          kdist = kDistances.get(neighbor);
+        }
+        double reachDist = Math.max(kdist, 
+                                    point.getDistanceTo(neighbor, DISTANCE_MEASURE));
+        Pair<Point, Point> pair = new Pair<>(point, neighbor);
         reachDistances.put(pair, reachDist);
       });
     } catch (Exception e) {
@@ -198,7 +221,7 @@ public class ILOF {
       while (neighbors.hasNext()) {
         Point neighbor = neighbors.next().getValue0();
         Pair<Point, Point> pair = new Pair<>(point, neighbor);
-        // the following reachdist pair should exist
+        // the following reachdist pair should exist even for vps because they are (real point, real point | virtual point), not (virtual point, *)
         rdSum += reachDistances.get(pair);
       }
       LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : (kNNs.get(point).size() / rdSum));
@@ -213,7 +236,14 @@ public class ILOF {
       Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
       while (neighbors.hasNext()) {
         // need to get vp's lrd here
-        lrdSum += LRDs.get(neighbors.next().getValue0());
+        Point neighbor = neighbors.next().getValue0();
+        double lrd;
+        if (neighbor instanceof VPoint) {
+          lrd = vpLrds.get(neighbor);
+        } else {
+          lrd = LRDs.get(neighbor);
+        }
+        lrdSum += lrd;
       }
       LOFs.put(point, lrdSum / (LRDs.get(point) * kNNs.get(point).size()));
     } catch (Exception e) {
@@ -270,6 +300,7 @@ public class ILOF {
     V = 2 * d;
   }
 
+  // this is a pretty nasty function signature
   public static void ilofSubroutineForRlof(Point point,
                                           HashSet<Point> window,
                                           HashMap<Point, PriorityQueue<Pair<Point, Double>>> rlofkNNs,
@@ -278,6 +309,8 @@ public class ILOF {
                                           HashMap<Point, Double> rlofLRDs,
                                           HashMap<Point, Double> rlofLOFs,
                                           HashSet<Triplet<Point, Double, Integer>> rlofBlackHoles,
+                                          HashMap<Point, Double> rlofVpKdists,
+                                          HashMap<Point, Double> rlofVpLrds,
                                           Dotenv config) {
     // TODO: There's some overlap between RLOF.setup() and ILOF.setup()
     setup(config);
@@ -291,7 +324,8 @@ public class ILOF {
     LRDs = rlofLRDs;
     LOFs = rlofLOFs;
     blackHoles = new HashSet<>(rlofBlackHoles);
-    // get vps profile collections
+    vpKdists = new HashMap<>(rlofVpKdists);
+    vpLrds = new HashMap<>(rlofVpLrds);
 
     computeProfileAndMaintainWindow(point);
   }
