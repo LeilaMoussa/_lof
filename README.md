@@ -27,11 +27,11 @@
     - [x] get multiple black holes the point belongs to and update all of them, including radius
     - [ ] decide on how ilof treats virtual points (in progress, pretty messy)
         - [ ] virtual points as reverse neighbors?
-        - [ ] implement V = 2 * d logic
+        - [ ] complete V = 2 * d logic
     - [x] average reachdist logic
         - [ ] account for usage of rds of virtual points
     - [ ] debug RLOF
-    - [ ] get labeled data from RLOF
+    - [x] get labeled data from RLOF
 - [x] plug TarsosLSH into ILOF
     - [x] fix folder structure
     - [x] look at radius business

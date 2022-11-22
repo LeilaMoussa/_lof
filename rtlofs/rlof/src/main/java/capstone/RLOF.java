@@ -1,8 +1,10 @@
 package capstone;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Properties;
@@ -15,6 +17,7 @@ import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.Printed;
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -45,6 +48,9 @@ public class RLOF {
     public static long MAX_AGE;
     public static String DISTANCE_MEASURE;
     public static int INLIER_PERCENTAGE;
+    public static int TOP_N;
+    public static long totalPoints;
+    public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
 
     public static HashSet<Triplet<Point, Double, Integer>> findBlackholeIfAny(Point point) {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
@@ -160,6 +166,8 @@ public class RLOF {
             HashSet<Point> toDelete = new HashSet<>();
             pointTimestamps.entrySet().forEach(entry -> {
                 if (entry.getValue() > MAX_AGE) {
+                    // in case they're an old outlier:
+                    topOutliers.add(new Pair<>(entry.getKey(), LOFs.get(entry.getKey())));
                     toDelete.add(entry.getKey());
                 }
             });
@@ -235,17 +243,26 @@ public class RLOF {
         MAX_AGE = Integer.parseInt(config.get("MAX_AGE"));
         DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
         INLIER_PERCENTAGE = Integer.parseInt(config.get("INLIER_PERCENTAGE"));
+        TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
+        topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
     }
+
+    // copy paste
+    // TODO: make util?
+    public static int labelPoint(Point point) {
+        return topOutliers.contains(new Pair<Point, Double>(point, LOFs.get(point))) ? 1 : 0;
+      }
     
     public static void process(KStream<String, Point> data, Dotenv config) {
         setup(config);
 
         data
         .map((key, point) -> {
+            totalPoints++;
             HashSet<Triplet<Point, Double, Integer>> triplets = findBlackholeIfAny(point);
             return new KeyValue<Point, HashSet<Triplet<Point, Double, Integer>>>(point, triplets);
         })
-        .foreach((point, triplets) -> {
+        .flatMap((point, triplets) -> {
             if (triplets.size() == 0) {
                 // shallow copy, i.e. mutate original collections
                 window.add(point);
@@ -289,7 +306,30 @@ public class RLOF {
             if (window.size() >= W) {
                 ageBasedDeletion();
             }
-        });
+
+            ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
+            if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
+                // by the end of the test data stream
+                // the points in the window is but a subset
+                // the others which were deleted were either assumed to be inliers (summarize)
+                // or were old
+                // old points can be outliers too
+                // so before deleting an old real point, add it to topOutliers heap
+                // don't bother to do the same with summarized points or old blackholes (those are just vps anyway, can't possibly be outliers)
+
+                // TODO: quite a bit of copy paste here from ILOF
+                for (Point x : window) {
+                  topOutliers.add(new Pair<Point, Double>(x, LOFs.get(x)));
+                };
+                for (Point x : window) {
+                  //System.out.println(x + " " + LOFs.get(x));
+                  System.out.println(x + " " + labelPoint(x));
+                  mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
+                };
+            }
+            return mapped;
+        })
+        .print(Printed.toFile(config.get("SINK_FILE")));
     }
 
     public static void main(String[] args) {

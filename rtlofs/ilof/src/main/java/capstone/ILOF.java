@@ -61,6 +61,7 @@ public class ILOF {
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
     // VPs need coordinates here
+    // TODO get coordinates, like below, and make List<Vector> from them, and add to dataset
     List<Vector> dataset = pointStore.stream().map(Point::toVector).collect(Collectors.toList());    
     switch (DISTANCE_MEASURE) {
       case "EUCLIDEAN":
@@ -74,22 +75,7 @@ public class ILOF {
       default: System.out.println("Unsupported distance measure.");
     }
 
-    // TODO if I want to save the same hyperplanes etc. I need some more work here.
-
-    // VP: need to find a way to pass vps too as Vectors
-    // but they need to have coordinates
-    // i'll try to calculate their coordinates from the center
-    // but this is only okay when d=2: (x+R, y), (x, y+R), (x-R, y), (x, y-R)
-
-    // use this solution for d dimensions
-    // and abandon VPoint?
-    // because otherwise, i'm restricted to V=4 and d=2
-    // https://math.stackexchange.com/a/1585996
-    // maybe if i keep V=4, i can keep using these hardcoded distances with any d
-
-    // here too, instead of actually manipulating v*vps, add each blackhole V times
-
-    // TODO return something from this
+    // TODO return something from this (probably a pq of Points? or a set?)
     CommandLineInterface.lshSearch(dataset,
               hashFamily,
               HASHES,
@@ -106,13 +92,16 @@ public class ILOF {
         double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
         distances.add(new Pair<Point, Double>(otherPoint, distance));
       });
-      // TODO: is it reasonable to be selective of the blackholes we iterate over?
       if (blackHoles != null) {
+        // BH * 2 * d vps are instantiated
         blackHoles.forEach(bh -> {
-          for (int i = 0; i < V; i++) {
-            VPoint vp = new VPoint(Position.valueOfLabel(i), bh.getValue0(), bh.getValue1());
-            double distance = vp.getDistanceTo(point, DISTANCE_MEASURE); // returns one of 3 distinct possible values
-            distances.add(new Pair<Point, Double>(vp, distance));
+          for (int pl = 0; pl < d; pl++) {
+            for (int pos = 0; pos < 2; pos++) {
+              VPoint vp = new VPoint(bh.getValue0(), bh.getValue1(), d, pl, pos);
+              // important: calling Point.getDistanceTo, not VPoint's getDistanceTo, which will be deprecated
+              double distance = point.getDistanceTo(vp, DISTANCE_MEASURE);
+              distances.add(new Pair<Point, Double>(vp, distance));
+            }
           }
         });
       }
@@ -145,6 +134,9 @@ public class ILOF {
   public static void getRds(Point point) {
     try {
       kNNs.get(point).forEach(neighbor -> {
+        // neighbor could be vp
+        // distance is ok
+        // kdist needs to be gotten from rlof
         double reachDist = Math.max(kDistances.get(neighbor.getValue0()), 
                                     point.getDistanceTo(neighbor.getValue0(), DISTANCE_MEASURE));
         Pair<Point, Point> pair = new Pair<>(point, neighbor.getValue0());
@@ -167,14 +159,16 @@ public class ILOF {
   public static HashSet<Point> getRkNN(Point point) {
     HashSet<Point> rknn = new HashSet<>();
     try {
-      // O(W * k)
       pointStore.forEach(otherPoint -> {
         if (isNeighborOf(point, otherPoint)) {
           rknn.add(otherPoint);
         }
       });
       // VPs don't have neighborhoods => they can't be reverse neighbors at all?
-
+      // let's try out not giving them neighborhoods at all
+      // rationale: the point of getting rknn is that the points in these rknns would be subject
+      // to updating profiles, while we don't want vps to change due to outside influences
+      // the only way we want them to change is from within their own blackholes
     } catch (Exception e) {
       System.out.println("getRkNN " + e);
     }
@@ -191,7 +185,6 @@ public class ILOF {
           rknn.add(x);
         }
       });
-      // iterate over VPs too, making sure the overriden getDistanceTo gets called
     } catch (Exception e) {
       System.out.println("computeRkNN " + e);
     }
@@ -205,6 +198,7 @@ public class ILOF {
       while (neighbors.hasNext()) {
         Point neighbor = neighbors.next().getValue0();
         Pair<Point, Point> pair = new Pair<>(point, neighbor);
+        // the following reachdist pair should exist
         rdSum += reachDistances.get(pair);
       }
       LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : (kNNs.get(point).size() / rdSum));
@@ -218,6 +212,7 @@ public class ILOF {
       double lrdSum = 0;
       Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
       while (neighbors.hasNext()) {
+        // need to get vp's lrd here
         lrdSum += LRDs.get(neighbors.next().getValue0());
       }
       LOFs.put(point, lrdSum / (LRDs.get(point) * kNNs.get(point).size()));
@@ -271,7 +266,8 @@ public class ILOF {
     d = Integer.parseInt(config.get("DIMENSIONS"));
     HASHES = Integer.parseInt(config.get("HASHES"));
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
-    V = Integer.parseInt(config.get("VIRTUAL_POINTS"));
+    // Along each axis, there are 2 virtual points at each end of the hypersphere bounding the blackhole.
+    V = 2 * d;
   }
 
   public static void ilofSubroutineForRlof(Point point,
@@ -288,8 +284,6 @@ public class ILOF {
     // hopefully, these act as aliases
     // reminder to self: i did this to avoid circular dependency
 
-    // ILOF does not change the pointStore
-    // so it should be allowed to add the point
     pointStore = window;
     kNNs = rlofkNNs;
     kDistances = rlofkDistances;
@@ -297,6 +291,7 @@ public class ILOF {
     LRDs = rlofLRDs;
     LOFs = rlofLOFs;
     blackHoles = new HashSet<>(rlofBlackHoles);
+    // get vps profile collections
 
     computeProfileAndMaintainWindow(point);
   }
@@ -361,7 +356,7 @@ public class ILOF {
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
         for (Point x : pointStore) {
-          topOutliers.add(new Pair<Point, Double>(x, LOFs.get(x)));
+          topOutliers.add(new Pair<>(x, LOFs.get(x)));
         };
         for (Point x : pointStore) {
           //System.out.println(x + " " + LOFs.get(x));
@@ -376,7 +371,8 @@ public class ILOF {
     // and even the 454th line is cut.
     // UPDATE: it worked!
 
-    // TODO: I don't like how this is printed.
+    // TODO: I don't like this format
+    // if i can't change the format from here, just gonna have to do it myself in roc.py
     .print(Printed.toFile(config.get("SINK_FILE")));
 
     // final Serde<String> stringSerde = Serdes.String();
