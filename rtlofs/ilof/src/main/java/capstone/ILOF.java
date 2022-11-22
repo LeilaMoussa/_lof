@@ -374,6 +374,7 @@ public class ILOF {
     // TODO: very important, for some reason, not everything is printed
     // only 454/500 lines are printed
     // and even the 454th line is cut.
+    // UPDATE: it worked!
 
     // TODO: I don't like how this is printed.
     .print(Printed.toFile(config.get("SINK_FILE")));

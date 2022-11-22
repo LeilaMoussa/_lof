@@ -247,7 +247,6 @@ public class RLOF {
         })
         .foreach((point, triplets) -> {
             if (triplets.size() == 0) {
-                System.out.println("no triplets");
                 // shallow copy, i.e. mutate original collections
                 window.add(point);
                 ILOF.ilofSubroutineForRlof(point,
@@ -261,7 +260,6 @@ public class RLOF {
                                     config);
                 pointTimestamps.put(point, ts++);
             } else {
-                System.out.println("yes triplets");
                 // deep copy, i.e. don't mutate collections
                 HashSet<Point> deepWindow = new HashSet<>(window);
                 deepWindow.add(point);
@@ -286,11 +284,9 @@ public class RLOF {
                 }
             }
             if (window.size() >= W) {
-                System.out.println("summarize");
                 summarize();
             }
             if (window.size() >= W) {
-                System.out.println("age delete");
                 ageBasedDeletion();
             }
         });
