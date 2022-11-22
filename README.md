@@ -28,8 +28,6 @@
     - [ ] decide on how ilof treats virtual points (in progress, pretty messy)
         - [ ] virtual points as reverse neighbors?
         - [x] complete V = 2 * d logic
-    - [x] average reachdist logic
-        - [ ] account for usage of rds of virtual points
     - [ ] debug RLOF
     - [x] get labeled data from RLOF
 - [x] plug TarsosLSH into ILOF

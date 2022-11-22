@@ -36,8 +36,6 @@ public class RLOF {
     public static HashSet<VPoint> vps;
     // profiles of vps, where the keys are the blackhole centers
     public static HashMap<Point, Double> vpKdists;
-    // TODO: i'm just realizing: these don't matter! remove vprds on next commit!
-    public static HashMap<Point, Double> vpRds;
     public static HashMap<Point, Double> vpLrds;
 
     public static long ts = 0L;
@@ -68,22 +66,6 @@ public class RLOF {
         return found;
     }
 
-    public static double getAverageRdtoNeighbors(Point point,
-                                                PriorityQueue<Pair<Point, Double>> kNN,
-                                                HashMap<Pair<Point, Point>, Double> rds) {
-        double ans = 0;
-        try {
-            for (Pair<Point,Double> pair : kNN) {
-                Point neigh = pair.getValue0();
-                ans += rds.get(new Pair<>(point, neigh));
-            }
-            return ans / kNN.size();
-        } catch (Exception e) {
-            System.out.println("getAverageRdtoNeighbors " + e + e.getStackTrace()[0].getLineNumber());
-        }
-        return 0;
-    }
-
     public static void summarize() {
         try {
             final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
@@ -106,14 +88,9 @@ public class RLOF {
                 toDelete.addAll(neighbors);
                 int number = neighbors.size() + 1;
                 blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
-                // maybe make V*vps here
-                // so much memory consumption!
-                double avgKdist = 0, avgRd = 0, avgLrd = 0;
+                double avgKdist = 0, avgLrd = 0;
                 for (Point neighbor : neighbors) {
                     avgKdist += kDistances.get(neighbor);
-                    // here it's not necessary to pass these global references anyway
-                    // but it's made necessary by updateVps (global state is not affected by ILOF if we're updating vps)
-                    avgRd += getAverageRdtoNeighbors(neighbor, kNNs.get(neighbor), reachDistances);
                     avgLrd += LRDs.get(neighbor);
                 }
                 // hack:
@@ -122,11 +99,9 @@ public class RLOF {
                     System.exit(1);
                 }
                 avgKdist /= neighbors.size();
-                avgRd /= neighbors.size();
                 avgLrd /= neighbors.size();
 
                 vpKdists.put(center, avgKdist);
-                vpRds.put(center, avgRd);
                 vpLrds.put(center, avgLrd);
                 vpTimestamps.put(center, ts);
             }
@@ -146,10 +121,8 @@ public class RLOF {
             Point center = blackHole.getValue0();
             int number = blackHole.getValue2();
             double newAvgKdist = (vpKdists.get(center) * number + kdistance) / (number + 1);
-            double newAvgRd = (vpRds.get(center) * number + getAverageRdtoNeighbors(point, kNN, reachDistances)) / (number + 1);
             double newAvgLrd = (vpLrds.get(center) * number + lrd) / (number + 1);
             vpKdists.put(center, newAvgKdist);
-            vpRds.put(center, newAvgRd);
             vpLrds.put(center, newAvgLrd);
             double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
             blackHoles.remove(blackHole);
@@ -213,11 +186,11 @@ public class RLOF {
 
     public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
         // toDelete is the set of blackhole centers
+        // TODO i might be missing some deletions here (refer to fullyDeleteRealPoints)
         try {
             blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
             for (Point x : toDelete) {
                 vpKdists.remove(x);
-                vpRds.remove(x);
                 vpLrds.remove(x);
                 vpTimestamps.remove(x);
             }
@@ -235,7 +208,6 @@ public class RLOF {
         LOFs = new HashMap<>();
         blackHoles = new HashSet<>();
         vpKdists = new HashMap<>();
-        vpRds = new HashMap<>();
         vpLrds = new HashMap<>();
         pointTimestamps = new HashMap<>();
         vpTimestamps = new HashMap<>();
