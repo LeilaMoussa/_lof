@@ -55,7 +55,7 @@ public class RLOF {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
         try {
             for (Triplet<Point, Double, Integer> triplet : blackHoles) {
-                double distance = point.getDistanceTo(triplet.getValue0(), DISTANCE_MEASURE);
+                Double distance = point.getDistanceTo(triplet.getValue0(), DISTANCE_MEASURE);
                 if (distance <= triplet.getValue1()) {
                     found.add(triplet);
                 }
@@ -70,9 +70,9 @@ public class RLOF {
         try {
             final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
-                                                                .orderedBy(PointComparator.comparator().reversed())
-                                                                .maximumSize(numberTopInliers)
-                                                                .create();
+                                                            .orderedBy(PointComparator.comparator().reversed())
+                                                            .maximumSize(numberTopInliers)
+                                                            .create();
             for (Point point : window) {
                 sorted.add(new Pair<Point, Double>(point, LOFs.get(point)));
             }
@@ -124,7 +124,7 @@ public class RLOF {
             double newAvgLrd = (vpLrds.get(center) * number + lrd) / (number + 1);
             vpKdists.put(center, newAvgKdist);
             vpLrds.put(center, newAvgLrd);
-            double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
+            Double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
             blackHoles.remove(blackHole);
             blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
             vpTimestamps.put(center, 0L);
@@ -174,10 +174,10 @@ public class RLOF {
                         keys.add(entry.getKey());
                     }
                 }
+                reachDistances.keySet().removeAll(keys);
                 for (Entry<Point,PriorityQueue<Pair<Point,Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
-                reachDistances.keySet().removeAll(keys);
             }
         } catch (Exception e) {
             System.out.println("fullyDeleteRealPoints " + e + e.getStackTrace()[0].getLineNumber());
@@ -186,13 +186,24 @@ public class RLOF {
 
     public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
         // toDelete is the set of blackhole centers
-        // TODO i might be missing some deletions here (refer to fullyDeleteRealPoints)
         try {
             blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
             for (Point x : toDelete) {
                 vpKdists.remove(x);
                 vpLrds.remove(x);
                 vpTimestamps.remove(x);
+
+                HashSet<Pair<Point,Point>> keys = new HashSet<>();
+                for (Entry<Pair<Point,Point>,Double> entry : reachDistances.entrySet()) {
+                    if (entry.getKey().getValue1().equals(x)) {
+                        keys.add(entry.getKey());
+                    }
+                }
+                reachDistances.keySet().removeAll(keys);
+                for (Entry<Point,PriorityQueue<Pair<Point,Double>>> entry : kNNs.entrySet()) {
+                    entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
+                }
+
             }
         } catch (Exception e) {
             System.out.println("fullyDeleteVirtualPoints " + e + e.getStackTrace()[0].getLineNumber());
@@ -237,6 +248,8 @@ public class RLOF {
         })
         .flatMap((point, triplets) -> {
             if (triplets.size() == 0) {
+                // This is new point which is not immediately summarized
+                // so ILOF reflects the point on all collections.
                 // shallow copy, i.e. mutate original collections
                 window.add(point);
                 ILOF.ilofSubroutineForRlof(point,
@@ -252,6 +265,8 @@ public class RLOF {
                                     config);
                 pointTimestamps.put(point, ts++);
             } else {
+                // We want ILOF to pretend that the point is there
+                // but RLOF to discard the point
                 // deep copy, i.e. don't mutate collections
                 HashSet<Point> deepWindow = new HashSet<>(window);
                 deepWindow.add(point);
@@ -260,11 +275,6 @@ public class RLOF {
                 HashMap<Pair<Point, Point>, Double> deepReachDistances = new HashMap<>(reachDistances);
                 HashMap<Point, Double> deepLrds = new HashMap<>(LRDs);
                 HashMap<Point, Double> deepLofs = new HashMap<>(LOFs);
-                HashSet<Triplet<Point, Double, Integer>> deepBlackHoles = new HashSet<>(blackHoles);
-                // TODO i'm gonna have to take a very good look at the decision i made here
-                // just replicating the same stuff for now
-                HashMap<Point, Double> deepVpKdists = new HashMap<>(vpKdists);
-                HashMap<Point, Double> deepVpLrds = new HashMap<>(vpLrds);
                 
                 ILOF.ilofSubroutineForRlof(point,
                                     deepWindow,
@@ -273,10 +283,11 @@ public class RLOF {
                                     deepReachDistances,
                                     deepLrds,
                                     deepLofs,
-                                    deepBlackHoles,
-                                    deepVpKdists,
-                                    deepVpLrds,
+                                    blackHoles,
+                                    vpKdists,
+                                    vpLrds,
                                     config);
+
                 for (Triplet<Point,Double,Integer> triplet : triplets) {
                     updateVps(triplet, point, deepkNNs.get(point), deepkDistances.get(point),
                                 deepReachDistances, deepLrds.get(point));

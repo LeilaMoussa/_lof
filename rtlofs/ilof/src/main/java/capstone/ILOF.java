@@ -99,13 +99,17 @@ public class ILOF {
 
   public static ArrayList<VPoint> deriveVirtualPoints() {
     ArrayList<VPoint> ans = new ArrayList<>();
-    blackHoles.forEach(bh -> {
-      for (int pl = 0; pl < d; pl++) {
-        for (int pos = 0; pos < 2; pos++) {
-          ans.add(new VPoint(bh.getValue0(), bh.getValue1(), d, pl, pos));
+    try {
+      blackHoles.forEach(bh -> {
+        for (int pl = 0; pl < d; pl++) {
+          for (int pos = 0; pos < 2; pos++) {
+            ans.add(new VPoint(bh.getValue0(), bh.getValue1(), d, pl, pos));
+          }
         }
-      }
-    });
+      });
+    } catch (Exception e) {
+      System.out.println("deriveVirtualPoints " + e + " " + e.getStackTrace()[0].getLineNumber());
+    }
     return ans;
   }
 
@@ -114,14 +118,14 @@ public class ILOF {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
       pointStore.forEach(otherPoint -> {
         if (otherPoint.equals(point)) return;
-        double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
+        Double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
         distances.add(new Pair<Point, Double>(otherPoint, distance));
       });
       if (blackHoles != null) {
         ArrayList<VPoint> vps = deriveVirtualPoints();
         vps.forEach(vp -> {
-          double distance = point.getDistanceTo(vp, DISTANCE_MEASURE);
-              distances.add(new Pair<Point, Double>(vp, distance));
+          Double distance = point.getDistanceTo(vp, DISTANCE_MEASURE);
+          distances.add(new Pair<Point, Double>(vp, distance));
         });
       }
       distances.sort(PointComparator.comparator());
@@ -138,7 +142,7 @@ public class ILOF {
       }
       kNNs.put(point, pq);
     } catch (Exception e) {
-      System.out.println("getFlatkNN " + e);
+      System.out.println("getFlatkNN " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
   }
 
@@ -166,7 +170,7 @@ public class ILOF {
         reachDistances.put(pair, reachDist);
       });
     } catch (Exception e) {
-      System.out.println("getRds " + e);
+      System.out.println("getRds " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
   }
 
@@ -193,7 +197,7 @@ public class ILOF {
       // to updating profiles, while we don't want vps to change due to outside influences
       // the only way we want them to change is from within their own blackholes
     } catch (Exception e) {
-      System.out.println("getRkNN " + e);
+      System.out.println("getRkNN " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
     return rknn;
   }
@@ -203,13 +207,13 @@ public class ILOF {
     try {
       pointStore.forEach(x -> {
         if (x.equals(point)) return;
-        double dist = point.getDistanceTo(x, DISTANCE_MEASURE);
+        Double dist = point.getDistanceTo(x, DISTANCE_MEASURE);
         if (kNNs.get(x).size() < k || dist <= kDistances.get(x)) {
           rknn.add(x);
         }
       });
     } catch (Exception e) {
-      System.out.println("computeRkNN " + e);
+      System.out.println("computeRkNN " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
     return rknn;
   }
@@ -338,6 +342,7 @@ public class ILOF {
       for (Point to_update : update_kdist) {
         // TODO: i could write updatekDist() that performs the update logic from querykNN()
         // for slightly better performance => i should do this (i.e. push and pop logic)
+        // NOTE: that would only be useful for flatsearch
         getkNN(to_update, NNS_TECHNIQUE);
       }
       HashSet<Point> update_lrd = new HashSet<>(update_kdist);
@@ -400,11 +405,6 @@ public class ILOF {
       }
       return mapped;
     })
-    // TODO: very important, for some reason, not everything is printed
-    // only 454/500 lines are printed
-    // and even the 454th line is cut.
-    // UPDATE: it worked!
-
     // TODO: I don't like this format
     // if i can't change the format from here, just gonna have to do it myself in roc.py
     .print(Printed.toFile(config.get("SINK_FILE")));

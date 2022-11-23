@@ -1,7 +1,6 @@
 package capstone;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import be.tarsos.lsh.Vector;
 
@@ -21,22 +20,27 @@ public class Point {
     }
 
     public Double getDistanceTo(Point other, String distanceMeasure) {
-      double distance = 0;
-      switch (distanceMeasure) {
-        case "EUCLIDEAN":
-          for (int i = 0; i < this.dim; i++) {
-            distance += Math.pow(this.getAttribute(i) - other.getAttribute(i), 2);
-          }
-          return Math.sqrt(distance);
-        case "MANHATTAN":
-          for (int i = 0; i < this.dim; i++) {
-            distance += Math.abs(this.getAttribute(i) - other.getAttribute(i));
-          }
-          return distance;
-        default:
-          System.err.println("bad dist measure");
-          return null;
+      try {
+        double distance = 0;
+        switch (distanceMeasure) {
+          case "EUCLIDEAN":
+            for (int i = 0; i < this.dim; i++) {
+              distance += Math.pow(this.getAttribute(i) - other.getAttribute(i), 2);
+            }
+            return Math.sqrt(distance);
+          case "MANHATTAN":
+            for (int i = 0; i < this.dim; i++) {
+              distance += Math.abs(this.getAttribute(i) - other.getAttribute(i));
+            }
+            return distance;
+          default:
+            System.err.println("bad dist measure");
+            return null;
+        }
+      } catch (Exception e) {
+        System.out.println("getDistanceTo " + e + " " + e.getStackTrace()[0].getLineNumber());
       }
+      return null;
     }
 
     public Vector toVector() {
