@@ -14,7 +14,7 @@ def getLabels(file: str, d: int) -> List[int]:
         data = _in.readlines()
         data.sort() # to get same order
         for line in data:
-            ans += line.split(" ")[d]
+            ans.append(int(line.strip().strip('\n').split()[d]))
     return ans
 
 
@@ -39,7 +39,6 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
     rows = math.ceil(len(datasets_name) / cols)
 
     fig, axs = plt.subplots(rows, cols, figsize=(10, rows * 3))
-    print("axs", axs)
 
     for i, dataset in enumerate(datasets_name):
         y = getLabels(expected_profiles_file, d)
@@ -64,5 +63,7 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
 if __name__ == '__main__':
     # These files contain the data labeled as 0 (inlier) or 1 (outlier)
     # python3 roc.py ILOF mouse rtlofs/ilof/labeled-stdout.txt ../labeled-mouse.txt 2
+    # python roc.py ILOF mouse labeled-stdout.txt labeled-mouse.txt 2
+    # python roc.py RLOF mouse labeled-stdout.txt labeled-mouse.txt 2
     [_, alg_name, dataset_name, sink_file, expected_profiles_file, dim] = sys.argv
     plot_roc(alg_name, dataset_name, sink_file, expected_profiles_file, int(dim))
