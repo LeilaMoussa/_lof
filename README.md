@@ -14,7 +14,7 @@
 - [ ] process expected labeled data sets
     - [ ] KDDCup99 10%
 - [ ] debug RLOF sink file
-- [ ] generate ROC curve for RLOF
+- [x] generate ROC curve for RLOF
     - [ ] with flat index
     - [ ] with lsh
     - [ ] with varying k
