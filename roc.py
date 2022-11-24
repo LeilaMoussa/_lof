@@ -1,6 +1,5 @@
 import sys
 import matplotlib.pyplot as plt
-from sklearn import metrics
 from sklearn.metrics import RocCurveDisplay
 from typing import List
 import math
@@ -17,12 +16,8 @@ def getLabels(file: str, d: int) -> List[int]:
             ans.append(int(line.strip().strip('\n').split()[d]))
     return ans
 
-
 # copied from https://scikit-learn.org/stable/auto_examples/miscellaneous/plot_outlier_detection_bench.html then modified
 def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles_file: str, d: int):
-
-    y_pred = getLabels(sink_file, d)
-    y = getLabels(expected_profiles_file, d)
 
     datasets_name = [
         dataset_name,
@@ -35,7 +30,7 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
     # plotting parameters
     cols = 1
     linewidth = 1
-    pos_label = 0  # 0 belongs to positive class
+    pos_label = 1  # 1 means outlier
     rows = math.ceil(len(datasets_name) / cols)
 
     fig, axs = plt.subplots(rows, cols, figsize=(10, rows * 3))
