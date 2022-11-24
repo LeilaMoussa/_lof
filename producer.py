@@ -39,7 +39,7 @@ if __name__ == '__main__':
         for i in range(d):
             line += words[i] + " "
         line.strip()
-        print(count, " - ", line)
+        print(count + 1, " - ", line)
         producer.send(topic_name, line.encode())
         count += 1
         time.sleep(interval)

@@ -11,25 +11,23 @@
 
 ## Immediate Todos
 
-- [x] finish refactoring and debugging ILOF (cosmetic changes to be done last, e.g. logging and config defaults)
-- [x] label points as inliers or outliers, start with x%, then topN, then maybe, if i have time, using fixed threshold
-(just went with topN for now, must double check how this works with RLOF)
-- [x] write labeled data to sink file
-- [ ] also write to sink topic (TBD: outliers and/or labeled data?)
-- [x] finish and test roc.py (python version problems here)
-- [x] call ilof from rlof
-- [ ] finish rlof.java
-    - [x] create all collections
-    - [x] pass and/or import them in and out of ilof
-    - [x] age-based deletion
-        - [x] points
-        - [x] black holes
-    - [x] get multiple black holes the point belongs to and update all of them, including radius
-    - [x] decide on how ilof treats virtual points (in progress, pretty messy)
-        - [x] complete V = 2 * d logic
-    - [ ] test & debug RLOF (wip)
-    - [x] get labeled data from RLOF
-- [x] plug TarsosLSH into ILOF
-    - [x] fix folder structure
-    - [x] look at radius business
+- [ ] process expected labeled data sets
+    - [ ] KDDCup99 10%
+- [ ] debug RLOF sink file
 - [ ] generate ROC curve for RLOF
+    - [ ] with flat index
+    - [ ] with lsh
+    - [ ] with varying k
+    - [ ] with varying W
+    - [ ] with varying MAX_AGE
+- [ ] calculate execution times
+    - [ ] ILOF
+    - [ ] RLOF with flat index
+    - [ ] RLOF with lsh
+- [ ] verify VP distances check out
+- [ ] benchmark accuracy of TarsosLSH in a vacuum
+    - [ ] vary HASHES
+    - [ ] vary HASHTABLES
+- [ ] write some kind of results to sink topic
+- [ ] make producer.py read line by line
+- [ ] would be nice to have: customize sink file format or add that logic to roc.py

@@ -41,8 +41,6 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
     fig, axs = plt.subplots(rows, cols, figsize=(10, rows * 3))
     print("axs", axs)
 
-    # TODO use args instead of this hardcoded stuff
-
     for i, dataset in enumerate(datasets_name):
         y = getLabels(expected_profiles_file, d)
 

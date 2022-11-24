@@ -160,9 +160,20 @@ public class RLOF {
     }
 
     public static void fullyDeleteRealPoints(HashSet<Point> toDelete) {
+        // toDelete may contain inliers (from summarize)
+        // or old in/outliers from age-based deletion (though probably likelier to be old outliers)
+        // in any case, these points don't make it to the end of the stream and the final window
+        // the fact that they may be labeled as outliers here means they were outliers ar that point in time
+        // but they're not necessarily outliers in the absolute (which is a natural consequence of summarization)
         try {
             window.removeAll(toDelete);
             for (Point x : toDelete) {
+
+                // you also want to add this point to labeled data
+                // temp:
+                System.out.println(x + " " + labelPoint(x));
+                // also add to mapped, made global
+
                 kNNs.remove(x);
                 kDistances.remove(x);
                 LRDs.remove(x);
@@ -292,6 +303,14 @@ public class RLOF {
                     updateVps(triplet, point, deepkNNs.get(point), deepkDistances.get(point),
                                 deepReachDistances, deepLrds.get(point));
                 }
+
+                // since this point was never added to window (and hence never deleted)
+                // and it is assumed to be an outlier
+                // print its labeled result here
+                // you also want to add this point to labeled data
+                // temp:
+                System.out.println(point + " " + labelPoint(point));
+                // also add to mapped, made global
             }
             if (window.size() >= W) {
                 summarize();
@@ -309,6 +328,10 @@ public class RLOF {
                 // old points can be outliers too
                 // so before deleting an old real point, add it to topOutliers heap
                 // don't bother to do the same with summarized points or old blackholes (those are just vps anyway, can't possibly be outliers)
+
+                // update: only <= W points are printed here
+                // whereas we want all TOP_N points to stay persisted
+                // so print the real point (to stdout or file) when it's deleted
 
                 // TODO: quite a bit of copy paste here from ILOF
                 for (Point x : window) {
