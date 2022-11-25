@@ -70,11 +70,9 @@ public class RLOF {
 
     public static void summarize() {
         try {
-            final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
+            final int numberTopInliers = (int)(window.size() * INLIER_PERCENTAGE / 100);
             // sort lofs asc
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
-                                                            // BUG getFlatkNN java.lang.IllegalArgumentException: Comparison method violates its general contract! 777
-                                                            // happened when I remove .reversed()
                                                             .orderedBy(PointComparator.comparator())
                                                             .maximumSize(numberTopInliers)
                                                             .create();
@@ -85,7 +83,7 @@ public class RLOF {
             HashSet<Point> toDelete = new HashSet<>();
             for (Pair<Point, Double> inlier : sorted) {
                 Point center = inlier.getValue0();
-                assert(center.getClass().equals(VPoint.class) == false);
+                assert(Tests.centerIsNotVirtual(center));
                 toDelete.add(center);
                 double radius = kDistances.get(center);
                 HashSet<Point> neighbors = new HashSet<>();
@@ -94,12 +92,12 @@ public class RLOF {
                 }
                 toDelete.addAll(neighbors);
                 int number = neighbors.size() + 1;
-                assert(number >= k);
+                assert(Tests.isAtLeast(number, k));
                 assert(Tests.blackholeDoesNotAlreadyExist(blackHoles, center));
                 blackHoles.add(new Triplet<Point, Double, Integer>(center, radius, number));
                 double avgKdist = 0, avgLrd = 0;
                 for (Point neighbor : neighbors) {
-                    double kdist, lrd;
+                    Double kdist, lrd;
                     if (neighbor.getClass().equals(VPoint.class)) {
                         kdist = vpKdists.get(((VPoint)neighbor).center);
                         lrd = vpLrds.get(((VPoint)neighbor).center);
@@ -110,11 +108,11 @@ public class RLOF {
                     avgKdist += kdist;
                     avgLrd += lrd;
                 }
-                assert(neighbors.size() > 0);
+                assert(Tests.isPositive(neighbors.size()));
                 avgKdist /= neighbors.size();
                 avgLrd /= neighbors.size();
-                assert(avgKdist > 0);
-                assert(avgLrd > 0);
+                assert(Tests.isPositive(avgKdist));
+                assert(Tests.isPositive(avgLrd));
 
                 vpKdists.put(center, avgKdist);
                 vpLrds.put(center, avgLrd);
@@ -122,7 +120,7 @@ public class RLOF {
             }
             int before = window.size();
             fullyDeleteRealPoints(toDelete);
-            assert(window.size() < before);
+            assert(Tests.isLessThan(window.size(), before));
         } catch (Exception e) {
             System.out.println("summarize " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -139,13 +137,13 @@ public class RLOF {
             int number = blackHole.getValue2();
             double newAvgKdist = (vpKdists.get(center) * number + kdistance) / (number + 1);
             double newAvgLrd = (vpLrds.get(center) * number + lrd) / (number + 1);
-            assert(newAvgKdist <= vpKdists.get(center));
-            assert(newAvgLrd >= vpLrds.get(center));
+            //assert(Tests.isAtMost(newAvgKdist, vpKdists.get(center)));
+            //assert(Tests.isAtLeast(newAvgLrd, vpLrds.get(center))); // perhaps these 2 assertions are wishful thinking?
             vpKdists.put(center, newAvgKdist);
             vpLrds.put(center, newAvgLrd);
             // new_kdist is new radius
             Double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
-            assert(new_kdist <= blackHole.getValue1());
+            assert(Tests.isAtMost(new_kdist, blackHole.getValue1()));
             blackHoles.remove(blackHole);
             blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
             vpTimestamps.put(center, 0L);
@@ -176,7 +174,7 @@ public class RLOF {
                 }
             });
             fullyDeleteVirtualPoints(toDelete);
-            assert(window.size() <= before);
+            assert(Tests.isAtMost(window.size(), before));
         } catch (Exception e) {
             System.out.println("ageBasedDeletion " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -307,7 +305,7 @@ public class RLOF {
                 // deep copy, i.e. don't mutate collections
                 HashSet<Point> deepWindow = new HashSet<>(window);
                 deepWindow.add(point);
-                assert(window.contains(point) == false);
+                assert(Tests.pointNotInWindow(window, point));
                 HashMap<Point, PriorityQueue<Pair<Point, Double>>> deepkNNs = new HashMap<>(kNNs);
                 HashMap<Point, Double> deepkDistances = new HashMap<>(kDistances);
                 HashMap<Pair<Point, Point>, Double> deepReachDistances = new HashMap<>(reachDistances);
@@ -347,7 +345,6 @@ public class RLOF {
             }
 
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
-                assert(mapped.size() == Integer.parseInt(config.get("TOTAL_POINTS")));
                 // by the end of the test data stream
                 // the points in the window is but a subset
                 // the others which were deleted were either assumed to be inliers (summarize)
@@ -370,6 +367,7 @@ public class RLOF {
                   System.out.println(x + "" + labelPoint(x));
                   mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
                 };
+                assert(Tests.isEq(mapped.size(), Integer.parseInt(config.get("TOTAL_POINTS"))));
             }
             return mapped;
         })

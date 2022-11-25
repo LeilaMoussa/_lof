@@ -108,7 +108,7 @@ public class ILOF {
     } catch (Exception e) {
       System.out.println("deriveVirtualPoints " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
-    assert(ans.size() == blackHoles.size() * d * 2);
+    assert(Tests.isEq(ans.size(), blackHoles.size() * d * 2));
     return ans;
   }
 
@@ -127,13 +127,13 @@ public class ILOF {
           distances.add(new Pair<Point, Double>(vp, distance));
         });
       }
-      assert(distances.size() == pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() : 0));
+      assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
       // asc
       distances.sort(PointComparator.comparator());
       if (distances.size() >= 2) {
         assert(Tests.isSortedAscending(distances));
       }
-      double kdist = 0;
+      Double kdist = 0.0;
       if (distances.size() > 0) {
         kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1();
       }
@@ -167,7 +167,7 @@ public class ILOF {
     try {
       kNNs.get(point).forEach(neighborpair -> {
         Point neighbor = neighborpair.getValue0();
-        double kdist;
+        Double kdist;
         if (neighbor.getClass().equals(VPoint.class)) {
           kdist = vpKdists.get(((VPoint)neighbor).center);
         } else {
@@ -357,9 +357,9 @@ public class ILOF {
             reachDistances.put(new Pair<>(neigh, to_update), kDistances.get(to_update));
           }
           // NOTE: following not from ILOF paper, but without it, reach_dist(old, new) wouldn't exist.
-          double kdist;
+          Double kdist;
           if (neigh.getClass().equals(VPoint.class)) {
-            assert(vpKdists.size() > 0);
+            assert(Tests.isPositive(vpKdists.size()));
             kdist = vpKdists.get(((VPoint)neigh).center);
           } else {
             kdist = kDistances.get(neigh);

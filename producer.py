@@ -3,19 +3,11 @@ from kafka.admin import NewTopic
 from kafka.errors import TopicAlreadyExistsError
 import time, sys
 
-def gen(infile: str):
-    with open(infile) as f:
-        #yield f.readline()
-        # TODO: read line by line
-        data = f.read()
-        data = data.split('\n')
-        return data
-
 # python3 producer.py mouse-source-topic ../mouse.txt 0 2
 if __name__ == '__main__':
     [_, topic_name, source_file, interval_sec, d] = sys.argv
     interval = float(interval_sec)
-    data = gen(source_file)
+    d = int(d)
 
     admin = KafkaAdminClient(bootstrap_servers='localhost:9092')
 
@@ -29,20 +21,21 @@ if __name__ == '__main__':
 
     producer = KafkaProducer(bootstrap_servers='localhost:9092')
 
-    count = 0
-    for line in data:
-        if not line:
-            break
-        line = line.strip().strip('\n')
-        words = line.split()
-        d = int(d)
-        line = ""
-        for i in range(d):
-            line += words[i] + " "
-        line.strip()
-        print(count + 1, " - ", line)
-        producer.send(topic_name, line.encode())
-        count += 1
-        time.sleep(interval)
+    with open(source_file) as f:
+        count = 0
+        while True:
+            line = f.readline()
+            if not line:
+                break
+            line = line.strip().strip('\n')
+            words = line.split()
+            line = ""
+            for i in range(d):
+                line += words[i] + " "
+            line.strip()
+            print(count + 1, " - ", line)
+            producer.send(topic_name, line.encode())
+            count += 1
+            time.sleep(interval)
 
     producer.close()

@@ -21,13 +21,13 @@
     - [ ] with varying W
     - [ ] with varying MAX_AGE
     - [ ] with varying INLIER_PERCENTAGE
-- [ ] calculate execution times (remember to comment out code like logging/printing/asserting)
+- [ ] calculate execution times (remember to comment out / disable stuff like logging/printing/asserting)
     - [ ] ILOF
     - [ ] RLOF with flat index
     - [ ] RLOF with lsh
 - [x] verify VP distances check out (they don't quite but needs further investigation)
 - [x] benchmark accuracy of TarsosLSH in a vacuum (done with random vectors)
 - [ ] write some kind of results to sink topic
-- [ ] make producer.py read line by line
+- [x] make producer.py read line by line
 - [ ] would be nice to have: customize sink file format or add that logic to roc.py
-- [ ] write as many "tests" (they're not really) as possible
+- [x] write as many "tests" (they're not really) as possible (WIP)
