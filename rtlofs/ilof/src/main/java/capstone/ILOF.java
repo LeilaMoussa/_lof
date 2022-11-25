@@ -77,9 +77,6 @@ public class ILOF {
       default: System.out.println("Unsupported distance measure.");
     }
 
-    // need to have the same effect on kNNs as flatsearch
-    // but in lsh, distances to points don't matter
-    // so simply overwrite the values, and the maxheap logic would never be relevant anyway
     List<Point> neighbors = CommandLineInterface.lshSearch(dataset,
                             hashFamily,
                             HASHES,
@@ -128,6 +125,8 @@ public class ILOF {
           distances.add(new Pair<Point, Double>(vp, distance));
         });
       }
+      System.out.println("3 " + totalPoints);
+      // asc
       distances.sort(PointComparator.comparator());
       double kdist = 0;
       if (distances.size() > 0) {
@@ -136,11 +135,15 @@ public class ILOF {
       kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
       int i = k;
       for (; i < distances.size() && distances.get(i).getValue1() == kdist; i++) { }
+      // in pq, max distance is at head of heap
       PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
       if (distances.size() > 0) {
         pq.addAll(distances.subList(0, Math.min(i, distances.size())));
       }
       kNNs.put(point, pq);
+      if (totalPoints > k) {
+        assert(Tests.atLeastKNeighbors(kNNs.get(point), k));
+      }
     } catch (Exception e) {
       System.out.println("getFlatkNN " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
@@ -169,6 +172,7 @@ public class ILOF {
         Pair<Point, Point> pair = new Pair<>(point, neighbor);
         reachDistances.put(pair, reachDist);
       });
+      assert(Tests.reachDistForEachNeighborHasValidValue(point, kNNs.get(point), reachDistances, kDistances, DISTANCE_MEASURE));
     } catch (Exception e) {
       System.out.println("getRds " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
@@ -191,11 +195,6 @@ public class ILOF {
           rknn.add(otherPoint);
         }
       });
-      // VPs don't have neighborhoods => they can't be reverse neighbors at all?
-      // let's try out not giving them neighborhoods at all
-      // rationale: the point of getting rknn is that the points in these rknns would be subject
-      // to updating profiles, while we don't want vps to change due to outside influences
-      // the only way we want them to change is from within their own blackholes
     } catch (Exception e) {
       System.out.println("getRkNN " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
@@ -225,7 +224,6 @@ public class ILOF {
       while (neighbors.hasNext()) {
         Point neighbor = neighbors.next().getValue0();
         Pair<Point, Point> pair = new Pair<>(point, neighbor);
-        // the following reachdist pair should exist even for vps because they are (real point, real point | virtual point), not (virtual point, *)
         rdSum += reachDistances.get(pair);
       }
       LRDs.put(point, rdSum == 0 ? Double.POSITIVE_INFINITY : (kNNs.get(point).size() / rdSum));
@@ -239,7 +237,6 @@ public class ILOF {
       double lrdSum = 0;
       Iterator<Pair<Point, Double>> neighbors = kNNs.get(point).iterator();
       while (neighbors.hasNext()) {
-        // need to get vp's lrd here
         Point neighbor = neighbors.next().getValue0();
         double lrd;
         if (neighbor instanceof VPoint) {
@@ -390,7 +387,6 @@ public class ILOF {
       pointStore.add(point);
       totalPoints++;
       computeProfileAndMaintainWindow(point);
-      // getTopNOutliers(point, LOFs.get(point));
       // The following condition is only relevant for testing.
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
@@ -399,7 +395,7 @@ public class ILOF {
         };
         for (Point x : pointStore) {
           //System.out.println(x + " " + LOFs.get(x));
-          System.out.println(x + " " + labelPoint(x));
+          System.out.println(x + "" + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
         };
       }

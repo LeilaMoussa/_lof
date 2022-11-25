@@ -11,6 +11,7 @@ def gen(infile: str):
         data = data.split('\n')
         return data
 
+# python3 producer.py mouse-source-topic ../mouse.txt 0 2
 if __name__ == '__main__':
     [_, topic_name, source_file, interval_sec, d] = sys.argv
     interval = float(interval_sec)

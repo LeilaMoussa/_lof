@@ -88,9 +88,7 @@ public class CommandLineInterface {
 			dataset = TestUtils.generate(dimensions, 100,512);
 			TestUtils.addNeighbours(dataset, 4, radius);
 		}
-		System.out.println("1");
 		if(datasetFile !=null){
-			System.out.println("2");
 			dataset = LSH.readDataset(datasetFile,Integer.MAX_VALUE);
 			dimensions = dataset.get(0).getDimensions();
 		}

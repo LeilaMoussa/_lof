@@ -50,6 +50,7 @@ public class RLOF {
     public static int TOP_N;
     public static long totalPoints;
     public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
+    public static ArrayList<KeyValue<String, Integer>> mapped;
 
     public static HashSet<Triplet<Point, Double, Integer>> findBlackholeIfAny(Point point) {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
@@ -69,8 +70,11 @@ public class RLOF {
     public static void summarize() {
         try {
             final int numberTopInliers = (int)(W * INLIER_PERCENTAGE / 100);
+            // sort lofs asc
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
-                                                            .orderedBy(PointComparator.comparator().reversed())
+                                                            // BUG getFlatkNN java.lang.IllegalArgumentException: Comparison method violates its general contract! 777
+                                                            // happened when I remove .reversed()
+                                                            .orderedBy(PointComparator.comparator())
                                                             .maximumSize(numberTopInliers)
                                                             .create();
             for (Point point : window) {
@@ -171,8 +175,8 @@ public class RLOF {
 
                 // you also want to add this point to labeled data
                 // temp:
-                System.out.println(x + " " + labelPoint(x));
-                // also add to mapped, made global
+                System.out.println(x + "" + labelPoint(x));
+                mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
 
                 kNNs.remove(x);
                 kDistances.remove(x);
@@ -240,10 +244,10 @@ public class RLOF {
         INLIER_PERCENTAGE = Integer.parseInt(config.get("INLIER_PERCENTAGE"));
         TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
         topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
+        mapped = new ArrayList<>();
     }
 
-    // copy paste
-    // TODO: make util?
+    // TODO: copy paste, make util?
     public static int labelPoint(Point point) {
         return topOutliers.contains(new Pair<Point, Double>(point, LOFs.get(point))) ? 1 : 0;
       }
@@ -309,8 +313,8 @@ public class RLOF {
                 // print its labeled result here
                 // you also want to add this point to labeled data
                 // temp:
-                System.out.println(point + " " + labelPoint(point));
-                // also add to mapped, made global
+                System.out.println(point + "" + labelPoint(point));
+                mapped.add(new KeyValue<String, Integer>(point.toString(), labelPoint(point)));
             }
             if (window.size() >= W) {
                 summarize();
@@ -319,7 +323,6 @@ public class RLOF {
                 ageBasedDeletion();
             }
 
-            ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
                 // by the end of the test data stream
                 // the points in the window is but a subset
@@ -339,7 +342,7 @@ public class RLOF {
                 };
                 for (Point x : window) {
                   //System.out.println(x + " " + LOFs.get(x));
-                  System.out.println(x + " " + labelPoint(x));
+                  System.out.println(x + "" + labelPoint(x));
                   mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
                 };
             }

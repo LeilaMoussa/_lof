@@ -36,7 +36,8 @@ public class EuclideanHash implements HashFunction{
 	public EuclideanHash(int dimensions,int w){
 		Random rand = new Random();
 		this.w = w;
-		this.offset = rand.nextInt(w);
+		//System.out.println("before rand, w is " + w);
+		this.offset = rand.nextInt(100);
 		
 		randomProjection = new Vector(dimensions);
 		for(int d=0; d<dimensions; d++) {

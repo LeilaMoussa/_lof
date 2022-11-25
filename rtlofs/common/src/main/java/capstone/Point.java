@@ -27,7 +27,14 @@ public class Point {
             for (int i = 0; i < this.dim; i++) {
               distance += Math.pow(this.getAttribute(i) - other.getAttribute(i), 2);
             }
-            return Math.sqrt(distance);
+            double x = Math.sqrt(distance);
+            // if (other instanceof VPoint) {
+            //   VPoint v = (VPoint)other;
+            //   if (x != (v.dim + v.R) && x != (v.dim - v.R) && x != Math.sqrt(Math.pow(v.dim, 2) + Math.pow(v.R, 2))) {
+            //     System.out.println("unexpected distance to vp");
+            //   }
+            // }
+            return x;
           case "MANHATTAN":
             for (int i = 0; i < this.dim; i++) {
               distance += Math.abs(this.getAttribute(i) - other.getAttribute(i));

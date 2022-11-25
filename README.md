@@ -11,23 +11,22 @@
 
 ## Immediate Todos
 
+- [ ] fix comparator bug in RLOF
 - [ ] process expected labeled data sets
     - [ ] KDDCup99 10%
-- [ ] debug RLOF sink file
+- [x] debug RLOF sink file
 - [x] generate ROC curve for RLOF
-    - [ ] with flat index
-    - [ ] with lsh
+    - [ ] with verying index
     - [ ] with varying k
     - [ ] with varying W
     - [ ] with varying MAX_AGE
+    - [ ] with varying INLIER_PERCENTAGE
 - [ ] calculate execution times
     - [ ] ILOF
     - [ ] RLOF with flat index
     - [ ] RLOF with lsh
-- [ ] verify VP distances check out
-- [ ] benchmark accuracy of TarsosLSH in a vacuum
-    - [ ] vary HASHES
-    - [ ] vary HASHTABLES
+- [x] verify VP distances check out (they don't quite but needs further investigation)
+- [x] benchmark accuracy of TarsosLSH in a vacuum (done with random vectors)
 - [ ] write some kind of results to sink topic
 - [ ] make producer.py read line by line
 - [ ] would be nice to have: customize sink file format or add that logic to roc.py

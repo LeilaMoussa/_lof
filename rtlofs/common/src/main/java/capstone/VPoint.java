@@ -3,7 +3,7 @@ package capstone;
 import java.util.ArrayList;
 
 public class VPoint extends Point {
-    double R;
+    public double R;
     Point center;
     int hplane; // hyperplane
     int position; // left or right for example
@@ -22,7 +22,7 @@ public class VPoint extends Point {
                 case 0: this.attributes.set(hplane, centerCoord + R); break;
                 case 1: this.attributes.set(hplane, centerCoord - R); break;
                 default: System.out.println("VP position can either be 0 or 1.");
-        }
+            }
         } catch (Exception e) {
             System.out.println("VPoint constructor " + e + " " + e.getStackTrace()[0].getLineNumber());
         }
