@@ -125,7 +125,6 @@ public class ILOF {
           distances.add(new Pair<Point, Double>(vp, distance));
         });
       }
-      System.out.println("3 " + totalPoints);
       // asc
       distances.sort(PointComparator.comparator());
       double kdist = 0;
@@ -162,8 +161,8 @@ public class ILOF {
       kNNs.get(point).forEach(neighborpair -> {
         Point neighbor = neighborpair.getValue0();
         double kdist;
-        if (neighbor instanceof VPoint) {
-          kdist = vpKdists.get(neighbor);
+        if (neighbor.getClass().equals(VPoint.class)) {
+          kdist = vpKdists.get(((VPoint)neighbor).center);
         } else {
           kdist = kDistances.get(neighbor);
         }
@@ -239,8 +238,8 @@ public class ILOF {
       while (neighbors.hasNext()) {
         Point neighbor = neighbors.next().getValue0();
         double lrd;
-        if (neighbor instanceof VPoint) {
-          lrd = vpLrds.get(neighbor);
+        if (neighbor.getClass().equals(VPoint.class)) {
+          lrd = vpLrds.get(((VPoint)neighbor).center);
         } else {
           lrd = LRDs.get(neighbor);
         }
@@ -336,6 +335,7 @@ public class ILOF {
       getkNN(point, NNS_TECHNIQUE);
       getRds(point);
       HashSet<Point> update_kdist = computeRkNN(point);
+      assert(Tests.noVirtualPointsAreToBeUpdated(update_kdist));
       for (Point to_update : update_kdist) {
         // TODO: i could write updatekDist() that performs the update logic from querykNN()
         // for slightly better performance => i should do this (i.e. push and pop logic)
@@ -344,26 +344,38 @@ public class ILOF {
       }
       HashSet<Point> update_lrd = new HashSet<>(update_kdist);
       for (Point to_update : update_kdist) {
-        for (Pair<Point, Double> neigh : kNNs.get(to_update)) {
-          reachDistances.put(new Pair<>(neigh.getValue0(), to_update), kDistances.get(to_update));
+        for (Pair<Point, Double> n : kNNs.get(to_update)) {
+          Point neigh = n.getValue0();
+          if (!(neigh.getClass().equals(VPoint.class))) {
+            reachDistances.put(new Pair<>(neigh, to_update), kDistances.get(to_update));
+          }
           // NOTE: following not from ILOF paper, but without it, reach_dist(old, new) wouldn't exist.
-          reachDistances.put(new Pair<>(to_update, neigh.getValue0()),
+          double kdist;
+          if (neigh.getClass().equals(VPoint.class)) {
+            assert(vpKdists.size() > 0);
+            kdist = vpKdists.get(((VPoint)neigh).center);
+          } else {
+            kdist = kDistances.get(neigh);
+          }
+          reachDistances.put(new Pair<>(to_update, neigh),
                             Math.max(
-                              to_update.getDistanceTo(neigh.getValue0(), DISTANCE_MEASURE),
-                              kDistances.get(neigh.getValue0())
-                            ));
+                              to_update.getDistanceTo(neigh, DISTANCE_MEASURE),
+                              kdist)
+                            );
           
-          if (neigh.getValue0().equals(point)) {
+          if (neigh.equals(point) || neigh.getClass().equals(VPoint.class)) {
             continue;
           }
           // NOTE: in ILOF paper, this statement is conditional (if to_update is neighbor of neigh).
-          update_lrd.add(neigh.getValue0());
+          update_lrd.add(neigh);
           // NOTE: following is not from paper either but from notes.
-          for (Pair<Point,Double> y : kNNs.get(neigh.getValue0())) {
+          for (Pair<Point,Double> y : kNNs.get(neigh)) {
+            if (y.getValue0().getClass().equals(VPoint.class)) continue;
             update_lrd.add(y.getValue0());
           }
         }
       }
+      assert(Tests.noVirtualPointsAreToBeUpdated(update_lrd));
       HashSet<Point> update_lof = new HashSet<>(update_lrd);
       for (Point to_update : update_lrd) {
         getLrd(to_update);
@@ -371,6 +383,7 @@ public class ILOF {
       }
       // NOTE: in ILOF paper, this was right before getLof(), but getLof(to_update) needs lrd(new).
       getLrd(point);
+      assert(Tests.noVirtualPointsAreToBeUpdated(update_lof));
       for (Point to_update : update_lof) {
         if (to_update.equals(point)) continue;
         getLof(to_update);

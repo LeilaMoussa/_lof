@@ -28,7 +28,7 @@ public class Point {
               distance += Math.pow(this.getAttribute(i) - other.getAttribute(i), 2);
             }
             double x = Math.sqrt(distance);
-            // if (other instanceof VPoint) {
+            // if (other.getClass().equals(VPoint.class)) {
             //   VPoint v = (VPoint)other;
             //   if (x != (v.dim + v.R) && x != (v.dim - v.R) && x != Math.sqrt(Math.pow(v.dim, 2) + Math.pow(v.R, 2))) {
             //     System.out.println("unexpected distance to vp");
@@ -70,7 +70,7 @@ public class Point {
 
     @Override
     public boolean equals(Object other) {
-      if (other == null || !(other instanceof Point)) return false;
+      if (other == null || !(other.getClass().equals(Point.class))) return false;
       Point otherPoint = (Point)other;
       boolean mismatch = false;
       for (int i = 0; i < this.dim; i++) {

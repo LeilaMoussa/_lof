@@ -81,26 +81,29 @@ public class RLOF {
                 sorted.add(new Pair<Point, Double>(point, LOFs.get(point)));
             }
             HashSet<Point> toDelete = new HashSet<>();
-            for (Pair<Point,Double> inlier : sorted) {
+            for (Pair<Point, Double> inlier : sorted) {
                 Point center = inlier.getValue0();
                 toDelete.add(center);
                 double radius = kDistances.get(center);
                 HashSet<Point> neighbors = new HashSet<>();
-                for (Pair<Point,Double> n : kNNs.get(center)) {
+                for (Pair<Point, Double> n : kNNs.get(center)) {
                     neighbors.add(n.getValue0());
                 }
                 toDelete.addAll(neighbors);
                 int number = neighbors.size() + 1;
-                blackHoles.add(new Triplet<Point,Double,Integer>(center, radius, number));
+                blackHoles.add(new Triplet<Point, Double, Integer>(center, radius, number));
                 double avgKdist = 0, avgLrd = 0;
                 for (Point neighbor : neighbors) {
-                    avgKdist += kDistances.get(neighbor);
-                    avgLrd += LRDs.get(neighbor);
-                }
-                // hack:
-                if (neighbors.size() == 0) {
-                    System.out.println("neighbors size should not be 0!");
-                    System.exit(1);
+                    double kdist, lrd;
+                    if (neighbor.getClass().equals(VPoint.class)) {
+                        kdist = vpKdists.get(((VPoint)neighbor).center);
+                        lrd = vpLrds.get(((VPoint)neighbor).center);
+                    } else {
+                        kdist = kDistances.get(neighbor);
+                        lrd = LRDs.get(neighbor);
+                    }
+                    avgKdist += kdist;
+                    avgLrd += lrd;
                 }
                 avgKdist /= neighbors.size();
                 avgLrd /= neighbors.size();
@@ -175,22 +178,24 @@ public class RLOF {
 
                 // you also want to add this point to labeled data
                 // temp:
-                System.out.println(x + "" + labelPoint(x));
-                mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
+                if (!(x.getClass().equals(VPoint.class))) {
+                    System.out.println(x + "" + labelPoint(x));
+                    mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
+                }
 
                 kNNs.remove(x);
                 kDistances.remove(x);
                 LRDs.remove(x);
                 LOFs.remove(x);
                 pointTimestamps.remove(x);
-                HashSet<Pair<Point,Point>> keys = new HashSet<>();
-                for (Entry<Pair<Point,Point>,Double> entry : reachDistances.entrySet()) {
+                HashSet<Pair<Point, Point>> keys = new HashSet<>();
+                for (Entry<Pair<Point, Point>, Double> entry : reachDistances.entrySet()) {
                     if (entry.getKey().getValue0().equals(x) || entry.getKey().getValue1().equals(x)) {
                         keys.add(entry.getKey());
                     }
                 }
                 reachDistances.keySet().removeAll(keys);
-                for (Entry<Point,PriorityQueue<Pair<Point,Double>>> entry : kNNs.entrySet()) {
+                for (Entry<Point, PriorityQueue<Pair<Point, Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
             }
@@ -209,13 +214,13 @@ public class RLOF {
                 vpTimestamps.remove(x);
 
                 HashSet<Pair<Point,Point>> keys = new HashSet<>();
-                for (Entry<Pair<Point,Point>,Double> entry : reachDistances.entrySet()) {
+                for (Entry<Pair<Point, Point>, Double> entry : reachDistances.entrySet()) {
                     if (entry.getKey().getValue1().equals(x)) {
                         keys.add(entry.getKey());
                     }
                 }
                 reachDistances.keySet().removeAll(keys);
-                for (Entry<Point,PriorityQueue<Pair<Point,Double>>> entry : kNNs.entrySet()) {
+                for (Entry<Point, PriorityQueue<Pair<Point, Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
 

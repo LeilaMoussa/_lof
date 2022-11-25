@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 public class VPoint extends Point {
     public double R;
-    Point center;
+    public Point center;
     int hplane; // hyperplane
     int position; // left or right for example
 
@@ -30,7 +30,7 @@ public class VPoint extends Point {
 
     @Override
     public boolean equals(Object other) {
-      if (other == null || !(other instanceof VPoint)) return false;
+      if (other == null || !(other.getClass().equals(VPoint.class))) return false;
       VPoint otherPoint = (VPoint)other;
       return otherPoint.attributes.equals(this.attributes);
     }
