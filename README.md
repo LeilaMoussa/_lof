@@ -11,12 +11,12 @@
 
 ## Immediate Todos
 
-- [ ] fix comparator bug in RLOF
+- [x] fix comparator bug in RLOF
 - [ ] process expected labeled data sets
     - [ ] KDDCup99 10%
 - [x] debug RLOF sink file
 - [x] generate ROC curve for RLOF
-    - [ ] with verying index
+    - [ ] with varying index
     - [ ] with varying k
     - [ ] with varying W
     - [ ] with varying MAX_AGE
