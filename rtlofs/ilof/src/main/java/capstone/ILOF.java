@@ -36,6 +36,7 @@ public class ILOF {
 
   // These collections should only be initialized and used when standalone ILOF is run.
   public static HashSet<Point> pointStore;
+  // TODO: I'm not using the pq logic anymore!
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
   public static HashMap<Point, Double> kDistances;
   public static HashMap<Pair<Point, Point>, Double> reachDistances;
@@ -107,6 +108,7 @@ public class ILOF {
     } catch (Exception e) {
       System.out.println("deriveVirtualPoints " + e + " " + e.getStackTrace()[0].getLineNumber());
     }
+    assert(ans.size() == blackHoles.size() * d * 2);
     return ans;
   }
 
@@ -125,8 +127,12 @@ public class ILOF {
           distances.add(new Pair<Point, Double>(vp, distance));
         });
       }
+      assert(distances.size() == pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() : 0));
       // asc
       distances.sort(PointComparator.comparator());
+      if (distances.size() >= 2) {
+        assert(Tests.isSortedAscending(distances));
+      }
       double kdist = 0;
       if (distances.size() > 0) {
         kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1();
@@ -139,6 +145,7 @@ public class ILOF {
       if (distances.size() > 0) {
         pq.addAll(distances.subList(0, Math.min(i, distances.size())));
       }
+      assert(Tests.isMaxHeap(new PriorityQueue<Pair<Point, Double>>(pq)));
       kNNs.put(point, pq);
       if (totalPoints > k) {
         assert(Tests.atLeastKNeighbors(kNNs.get(point), k));
@@ -171,7 +178,7 @@ public class ILOF {
         Pair<Point, Point> pair = new Pair<>(point, neighbor);
         reachDistances.put(pair, reachDist);
       });
-      assert(Tests.reachDistForEachNeighborHasValidValue(point, kNNs.get(point), reachDistances, kDistances, DISTANCE_MEASURE));
+      assert(Tests.reachDistForEachNeighborHasValidValue(point, kNNs.get(point), reachDistances, kDistances, vpKdists, DISTANCE_MEASURE));
     } catch (Exception e) {
       System.out.println("getRds " + e + " " + e.getStackTrace()[0].getLineNumber());
     }

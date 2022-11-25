@@ -43,6 +43,7 @@ public class RLOF {
     // again, key is BH center
     public static HashMap<Point, Long> vpTimestamps;
 
+    public static int k;
     public static long W;
     public static long MAX_AGE;
     public static String DISTANCE_MEASURE;
@@ -80,9 +81,11 @@ public class RLOF {
             for (Point point : window) {
                 sorted.add(new Pair<Point, Double>(point, LOFs.get(point)));
             }
+            assert(Tests.isMinHeap(sorted));
             HashSet<Point> toDelete = new HashSet<>();
             for (Pair<Point, Double> inlier : sorted) {
                 Point center = inlier.getValue0();
+                assert(center.getClass().equals(VPoint.class) == false);
                 toDelete.add(center);
                 double radius = kDistances.get(center);
                 HashSet<Point> neighbors = new HashSet<>();
@@ -91,6 +94,8 @@ public class RLOF {
                 }
                 toDelete.addAll(neighbors);
                 int number = neighbors.size() + 1;
+                assert(number >= k);
+                assert(Tests.blackholeDoesNotAlreadyExist(blackHoles, center));
                 blackHoles.add(new Triplet<Point, Double, Integer>(center, radius, number));
                 double avgKdist = 0, avgLrd = 0;
                 for (Point neighbor : neighbors) {
@@ -105,14 +110,19 @@ public class RLOF {
                     avgKdist += kdist;
                     avgLrd += lrd;
                 }
+                assert(neighbors.size() > 0);
                 avgKdist /= neighbors.size();
                 avgLrd /= neighbors.size();
+                assert(avgKdist > 0);
+                assert(avgLrd > 0);
 
                 vpKdists.put(center, avgKdist);
                 vpLrds.put(center, avgLrd);
                 vpTimestamps.put(center, ts);
             }
+            int before = window.size();
             fullyDeleteRealPoints(toDelete);
+            assert(window.size() < before);
         } catch (Exception e) {
             System.out.println("summarize " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -129,9 +139,13 @@ public class RLOF {
             int number = blackHole.getValue2();
             double newAvgKdist = (vpKdists.get(center) * number + kdistance) / (number + 1);
             double newAvgLrd = (vpLrds.get(center) * number + lrd) / (number + 1);
+            assert(newAvgKdist <= vpKdists.get(center));
+            assert(newAvgLrd >= vpLrds.get(center));
             vpKdists.put(center, newAvgKdist);
             vpLrds.put(center, newAvgLrd);
+            // new_kdist is new radius
             Double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
+            assert(new_kdist <= blackHole.getValue1());
             blackHoles.remove(blackHole);
             blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
             vpTimestamps.put(center, 0L);
@@ -152,6 +166,7 @@ public class RLOF {
                     toDelete.add(entry.getKey());
                 }
             });
+            int before = window.size();
             fullyDeleteRealPoints(toDelete);
             // now for the vps:
             toDelete.clear();
@@ -161,6 +176,7 @@ public class RLOF {
                 }
             });
             fullyDeleteVirtualPoints(toDelete);
+            assert(window.size() <= before);
         } catch (Exception e) {
             System.out.println("ageBasedDeletion " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -243,6 +259,7 @@ public class RLOF {
         pointTimestamps = new HashMap<>();
         vpTimestamps = new HashMap<>();
 
+        k = Integer.parseInt(config.get("k"));
         W = Integer.parseInt(config.get("WINDOW"));
         MAX_AGE = Integer.parseInt(config.get("MAX_AGE"));
         DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
@@ -290,6 +307,7 @@ public class RLOF {
                 // deep copy, i.e. don't mutate collections
                 HashSet<Point> deepWindow = new HashSet<>(window);
                 deepWindow.add(point);
+                assert(window.contains(point) == false);
                 HashMap<Point, PriorityQueue<Pair<Point, Double>>> deepkNNs = new HashMap<>(kNNs);
                 HashMap<Point, Double> deepkDistances = new HashMap<>(kDistances);
                 HashMap<Pair<Point, Point>, Double> deepReachDistances = new HashMap<>(reachDistances);
@@ -329,6 +347,7 @@ public class RLOF {
             }
 
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
+                assert(mapped.size() == Integer.parseInt(config.get("TOTAL_POINTS")));
                 // by the end of the test data stream
                 // the points in the window is but a subset
                 // the others which were deleted were either assumed to be inliers (summarize)
@@ -345,6 +364,7 @@ public class RLOF {
                 for (Point x : window) {
                   topOutliers.add(new Pair<Point, Double>(x, LOFs.get(x)));
                 };
+                assert(Tests.isMaxHeap(topOutliers));
                 for (Point x : window) {
                   //System.out.println(x + " " + LOFs.get(x));
                   System.out.println(x + "" + labelPoint(x));

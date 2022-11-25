@@ -21,7 +21,7 @@
     - [ ] with varying W
     - [ ] with varying MAX_AGE
     - [ ] with varying INLIER_PERCENTAGE
-- [ ] calculate execution times
+- [ ] calculate execution times (remember to comment out code like logging/printing/asserting)
     - [ ] ILOF
     - [ ] RLOF with flat index
     - [ ] RLOF with lsh
@@ -30,3 +30,4 @@
 - [ ] write some kind of results to sink topic
 - [ ] make producer.py read line by line
 - [ ] would be nice to have: customize sink file format or add that logic to roc.py
+- [ ] write as many "tests" (they're not really) as possible
