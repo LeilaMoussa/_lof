@@ -12,6 +12,7 @@ def getLabels(file: str, d: int) -> List[int]:
     with open(file, "r") as _in:
         data = _in.readlines()
         data.sort() # to get same order
+        print(len(set(data)))
         for line in data:
             ans.append(int(line.strip().strip('\n').split()[d]))
     return ans
@@ -60,5 +61,9 @@ if __name__ == '__main__':
     # python3 roc.py ILOF mouse rtlofs/ilof/labeled-stdout.txt ../labeled-mouse.txt 2
     # python roc.py ILOF mouse labeled-stdout.txt labeled-mouse.txt 2
     # python roc.py RLOF mouse labeled-stdout.txt labeled-mouse.txt 2
+
+    # python roc.py ILOF mouse ilof-labeled-stdout-2.txt labeled-mouse.txt 2
+    # python roc.py RLOF mouse rlof-labeled-stdout-2.txt labeled-mouse.txt 2
+    # python roc.py RLOF ilof-mouse rlof-labeled-stdout-2.txt ilof-labeled-stdout-2.txt 2
     [_, alg_name, dataset_name, sink_file, expected_profiles_file, dim] = sys.argv
     plot_roc(alg_name, dataset_name, sink_file, expected_profiles_file, int(dim))
