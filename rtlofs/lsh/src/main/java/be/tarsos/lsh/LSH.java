@@ -243,7 +243,7 @@ public class LSH {
 		 DetermineRadiusTask drt = new DetermineRadiusTask(dataset,measure);
 	     Future<Double> future = executor.submit(drt);
 	        try {
-	            System.out.println("Determine radius..");
+	            //System.out.println("Determine radius..");
 	            radius = 0.90 * future.get(timeout, TimeUnit.SECONDS);
 	            System.out.println("Determined radius: " + radius);
 	        } catch (TimeoutException e) {
@@ -276,9 +276,9 @@ public class LSH {
 	    public Double call() throws Exception {
 	        for(int i = 0 ; i < 30; i ++){
 	        	Vector query = dataset.get(rand.nextInt(dataset.size()));
-	        	List<Vector> result = linearSearch(dataset, query, 2, measure);
+	        	List<Vector> result = linearSearch(dataset, query, 1, measure); // Leila: was 2
 	        	//the first vector is the query self, the second the closest.
-	        	radiusSum += measure.distance(query, result.get(1));
+	        	radiusSum += measure.distance(query, result.get(0)); // Leila: was 1
 	        	queriesDone++;
 	        }
 	        return radiusSum/queriesDone;

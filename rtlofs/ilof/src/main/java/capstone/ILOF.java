@@ -10,7 +10,9 @@ import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Printed;
+
 import com.google.common.collect.MinMaxPriorityQueue;
+import com.google.common.collect.Sets;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -61,19 +63,21 @@ public class ILOF {
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
 
-  // BUG, TODO: the same way getFlatkNN sets both kNN and kdist, this func needs to as well
-  //
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
-    List<Vector> dataset = pointStore.stream().map(Point::toVector).collect(Collectors.toList());
+    List<Vector> dataset = Sets.difference(pointStore, new HashSet<Point>(Arrays.asList(point))).stream().map(Point::toVector).collect(Collectors.toList());
+    // assert dataset doesn't contain point
     dataset.addAll(deriveVirtualPoints().stream().map(Point::toVector).collect(Collectors.toList()));
+    // assert all vectors with non null keys in dataset sum up to blackholes * 2 * d
     switch (DISTANCE_MEASURE) {
       case "EUCLIDEAN":
-        int radiusEuclidean = (int) LSH.determineRadius(dataset, new EuclideanDistance(), 20);
+        int radiusEuclidean = (int)Math.ceil(LSH.determineRadius(dataset, new EuclideanDistance(), 40));
+        // assert if the dataset is non empty, the radius is positive, here and below
         hashFamily = new EuclidianHashFamily(radiusEuclidean, d);
         break;
       case "MANHATTAN":
-        int radiusCityBlock = (int) LSH.determineRadius(dataset, new CityBlockDistance(), 20);
+        //int radiusCityBlock = (int) LSH.determineRadius(dataset, new CityBlockDistance(), 20);
+        int radiusCityBlock = (int)Math.ceil(LSH.determineRadius(dataset, new CityBlockDistance(), 40));
         hashFamily = new CityBlockHashFamily(radiusCityBlock, d);
         break;
       default: System.out.println("Unsupported distance measure.");
@@ -85,15 +89,23 @@ public class ILOF {
                             HASHTABLES,
                             Arrays.asList(point.toVector()),
                             k)
-                            .get(0)
+                            .get(0) // the first elt a list that's always guaranteed to be there but may be empty
                             .stream()
-                            .map(Point::fromVector)
+                            .map(Point::fromVector) // could be VPoint
                             .collect(Collectors.toList());
-    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(); // this pq means nothing if ANNS=LSH
+
+    // assert neighbors does not contain point
+
+    // later: assert there are enough neighbors, maybe >= k-1 ?
+    // if totalPoints > 0, assert neighbors are more than 0
+
+    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
     for (Point n : neighbors) {
-      pq.add(new Pair<Point, Double>(n, 0.0)); // i don't like this dummy double, but it should do
+      pq.add(new Pair<Point, Double>(n, point.getDistanceTo(n, DISTANCE_MEASURE)));
     }
+    // assert pq is max heap
     kNNs.put(point, pq);
+    kDistances.put(point, pq.size() == 0 ? Double.POSITIVE_INFINITY : pq.peek().getValue1());
   }
 
   public static ArrayList<VPoint> deriveVirtualPoints() {
@@ -361,6 +373,8 @@ public class ILOF {
           Double kdist;
           if (neigh.getClass().equals(VPoint.class)) {
             assert(Tests.isPositive(vpKdists.size()));
+            // TODO check this kdist, check that VPs returned from vectors are good
+            // check that VPoint equals is good and doesn't rely on hashcode, but probably modify hashcode to be sure
             kdist = vpKdists.get(((VPoint)neigh).center);
           } else {
             kdist = kDistances.get(neigh);

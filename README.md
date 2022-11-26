@@ -35,4 +35,4 @@
 - [ ] write some kind of results to sink topic
 - [x] make producer.py read line by line
 - [ ] would be nice to have: customize sink file format or add that logic to roc.py
-- [x] write as many "tests" (they're not really) as possible (WIP) -- write stuff to verify LSH
+- [x] write as many "tests" (they're not really) as possible (WIP) -- write stuff to verify LSH!

@@ -56,7 +56,11 @@ public class Point {
       for (int i = 0; i < this.dim; i++) {
         arr[i] = this.getAttribute(i);
       }
-      return new Vector("", arr); // null key
+      String key = null;
+      if (this.getClass().equals(VPoint.class)) {
+        key = ((VPoint)this).center.toString();
+      };
+      return new Vector(key, arr);
     }
 
     public static Point fromVector(Vector v) {
@@ -64,6 +68,9 @@ public class Point {
       ArrayList<Double> attrs = new ArrayList<>();
       for (double x : arr) {
         attrs.add(x);
+      }
+      if (v.getKey() != null) {
+        return new VPoint(Parser.parse(v.getKey(), " ", attrs.size()), attrs);
       }
       return new Point(arr.length, attrs);
     }
@@ -74,7 +81,7 @@ public class Point {
       Point otherPoint = (Point)other;
       boolean mismatch = false;
       for (int i = 0; i < this.dim; i++) {
-        mismatch = this.getAttribute(i) != otherPoint.getAttribute(i);
+        mismatch = this.getAttribute(i).equals(otherPoint.getAttribute(i)) == false;
         if (mismatch) break;
       }
       return !mismatch;

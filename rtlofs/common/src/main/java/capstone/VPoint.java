@@ -3,10 +3,15 @@ package capstone;
 import java.util.ArrayList;
 
 public class VPoint extends Point {
-    public double R;
+    private double R;
     public Point center;
-    int hplane; // hyperplane
-    int position; // left or right for example
+    private int hplane; // hyperplane
+    private int position; // left or right for example
+
+    public VPoint(Point center, ArrayList<Double> attributes) {
+        this.center = center;
+        this.attributes = attributes;
+    }
 
     public VPoint(Point center, double radius, int d, int hplane, int position) {
         try {
