@@ -52,7 +52,6 @@ public class ILOF {
   public static int k;
   public static int d;
   public static int TOP_N;
-  public static int TOP_PERCENT;
   public static String DISTANCE_MEASURE;
   public static String NNS_TECHNIQUE;
   public static int HASHES;
@@ -62,6 +61,8 @@ public class ILOF {
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
 
+  // BUG, TODO: the same way getFlatkNN sets both kNN and kdist, this func needs to as well
+  //
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
     List<Vector> dataset = pointStore.stream().map(Point::toVector).collect(Collectors.toList());
@@ -139,7 +140,7 @@ public class ILOF {
       }
       kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
       int i = k;
-      for (; i < distances.size() && distances.get(i).getValue1() == kdist; i++) { }
+      for (; i < distances.size() && distances.get(i).getValue1().equals(kdist); i++) { }
       // in pq, max distance is at head of heap
       PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
       if (distances.size() > 0) {
@@ -293,9 +294,9 @@ public class ILOF {
     reachDistances = new HashMap<>();
     LRDs = new HashMap<>();
     LOFs = new HashMap<>();
+    // BUG if these values don't exist in .env, parseInt fails.
     k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
     TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
-    TOP_PERCENT = Optional.ofNullable(Integer.parseInt(config.get("TOP_PERCENT_OUTLIERS"))).orElse(5);
     DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
     topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
     totalPoints = 0;
@@ -414,7 +415,15 @@ public class ILOF {
           topOutliers.add(new Pair<>(x, LOFs.get(x)));
         };
         for (Point x : pointStore) {
-          //System.out.println(x + " " + LOFs.get(x));
+          // System.out.println(x);
+          // System.out.println(kNNs.get(x));
+          // System.out.println(kDistances.get(x));
+          // for (Pair<Point,Double> p : kNNs.get(x)) {
+          //   System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
+          // }
+          // System.out.println(LRDs.get(x));
+          // System.out.println(LOFs.get(x));
+          // System.out.println("label " + labelPoint(x));
           System.out.println(x + "" + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
         };
