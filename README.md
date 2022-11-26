@@ -13,8 +13,13 @@
 
 - [x] fix comparator bug in RLOF
 - [ ] process expected labeled data sets
-    - [ ] KDDCup99 10%
+    - [x] (toy dataset: mouse)
+    - [x] KDDCup99 10%
+    - [ ] pendigit?
+    - [ ] vowel?
+    - [ ] shuttle?
 - [x] debug RLOF sink file
+- [x] generate ROC curve for ILOF (satisfactory)
 - [x] generate ROC curve for RLOF
     - [ ] with varying index
     - [ ] with varying k
