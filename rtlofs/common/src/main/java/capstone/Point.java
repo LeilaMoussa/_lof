@@ -70,7 +70,7 @@ public class Point {
         attrs.add(x);
       }
       if (v.getKey() != null) {
-        return new VPoint(Parser.parse(v.getKey(), " ", attrs.size()), attrs);
+        return new VPoint(Utils.parse(v.getKey(), " ", attrs.size()), attrs);
       }
       return new Point(arr.length, attrs);
     }

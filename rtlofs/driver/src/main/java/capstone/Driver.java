@@ -33,7 +33,7 @@ public class Driver {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
 
-        KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Parser.parse(value,
+        KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Utils.parse(value,
                                                                                     " ",
                                                                                     Integer.parseInt(dotenv.get("DIMENSIONS")))));
 

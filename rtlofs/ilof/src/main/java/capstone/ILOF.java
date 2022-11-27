@@ -289,7 +289,7 @@ public class ILOF {
     StreamsBuilder builder = new StreamsBuilder();
     KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
 
-    KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Parser.parse(value,
+    KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Utils.parse(value,
                                                                               " ",
                                                                               Integer.parseInt(dotenv.get("DIMENSIONS")))));
 
@@ -422,7 +422,6 @@ public class ILOF {
       pointStore.add(point);
       totalPoints++;
       computeProfileAndMaintainWindow(point);
-      // The following condition is only relevant for testing.
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
         for (Point x : pointStore) {
@@ -446,7 +445,7 @@ public class ILOF {
     })
     // TODO: I don't like this format
     // if i can't change the format from here, just gonna have to do it myself in roc.py
-    .print(Printed.toFile(config.get("SINK_FILE")));
+    .print(Printed.toFile(Utils.buildSinkFilename(config, false, false)));
 
     // final Serde<String> stringSerde = Serdes.String();
     // <some_stream>.toStream().to("some-topic", Produced.with(stringSerde, stringSerde));

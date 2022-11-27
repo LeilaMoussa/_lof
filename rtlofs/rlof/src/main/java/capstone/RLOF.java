@@ -53,6 +53,11 @@ public class RLOF {
     public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
     public static ArrayList<KeyValue<String, Integer>> mapped;
 
+    public static boolean summarizeFlag;
+    public static boolean ageBasedDeletionFlag;
+
+    public static long startTime;
+
     public static HashSet<Triplet<Point, Double, Integer>> findBlackholeIfAny(Point point) {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
         try {
@@ -264,6 +269,7 @@ public class RLOF {
         INLIER_PERCENTAGE = Integer.parseInt(config.get("INLIER_PERCENTAGE"));
         TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
         topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
+
         mapped = new ArrayList<>();
     }
 
@@ -278,6 +284,9 @@ public class RLOF {
         data
         .map((key, point) -> {
             totalPoints++;
+            if (totalPoints == 1) {
+                startTime = System.nanoTime();
+            }
             HashSet<Triplet<Point, Double, Integer>> triplets = findBlackholeIfAny(point);
             return new KeyValue<Point, HashSet<Triplet<Point, Double, Integer>>>(point, triplets);
         })
@@ -338,13 +347,17 @@ public class RLOF {
                 mapped.add(new KeyValue<String, Integer>(point.toString(), labelPoint(point)));
             }
             if (window.size() >= W) {
+                summarizeFlag = true;
                 summarize();
             }
             if (window.size() >= W) {
+                ageBasedDeletionFlag = true;
                 ageBasedDeletion();
             }
 
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
+                long estimatedEndTime = System.nanoTime();
+                System.out.println("estimated time elapsed " + (estimatedEndTime - startTime) / 1000000);
                 // by the end of the test data stream
                 // the points in the window is but a subset
                 // the others which were deleted were either assumed to be inliers (summarize)
@@ -371,7 +384,7 @@ public class RLOF {
             }
             return mapped;
         })
-        .print(Printed.toFile(config.get("SINK_FILE")));
+        .print(Printed.toFile(Utils.buildSinkFilename(config, summarizeFlag, ageBasedDeletionFlag)));
     }
 
     public static void main(String[] args) {
@@ -386,7 +399,7 @@ public class RLOF {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
 
-        KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Parser.parse(value,
+        KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Utils.parse(value,
                                                                                 " ",
                                                                                 Integer.parseInt(dotenv.get("DIMENSIONS")))));
 

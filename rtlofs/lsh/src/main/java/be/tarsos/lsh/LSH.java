@@ -245,7 +245,7 @@ public class LSH {
 	        try {
 	            //System.out.println("Determine radius..");
 	            radius = 0.90 * future.get(timeout, TimeUnit.SECONDS);
-	            System.out.println("Determined radius: " + radius);
+	            //System.out.println("Determined radius: " + radius);
 	        } catch (TimeoutException e) {
 	            System.err.println("Terminated!");
 	            radius = 0.90 * drt.getRadius();
