@@ -275,7 +275,7 @@ public class RLOF {
         TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
         topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
         mapped = new HashSet<>();
-        SINK = Utils.buildSinkFilename(config);
+        SINK = Utils.buildSinkFilename(config, true);
     }
 
     // TODO: copy paste, make util?

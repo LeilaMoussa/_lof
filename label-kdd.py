@@ -1,4 +1,4 @@
-# A very specific script to keep only selected anomalies from KDD9910pc and label data as 0 or 1
+# A very specific script to keep only select anomalies from KDD9910pc and label data as 0 or 1
 def do():
     with open("../datasets/kddcup.data_10_percent_corrected", "r") as _in:
         key = 1

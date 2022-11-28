@@ -25,7 +25,7 @@ public class Utils {
         return parsed;
     }
 
-    public static String buildSinkFilename(Dotenv config) {
+    public static String buildSinkFilename(Dotenv config, boolean summ) {
         String name = config.get("DATASET") + 
                     "-d" + config.get("DIMENSIONS") + 
                     "-" + config.get("ALGORITHM") + 
@@ -36,9 +36,11 @@ public class Utils {
             name += "-h" + config.get("HASHES") + 
                     "-t" + config.get("HASHTABLES");
         }
-        name += "-w" + config.get("WINDOW") + 
+        if (summ) {
+            name += "-w" + config.get("WINDOW") + 
                 "-i" + config.get("INLIER_PERCENTAGE");
-        name += "-a" + config.get("MAX_AGE");
+            name += "-a" + config.get("MAX_AGE");
+        }
         return name.toLowerCase();
     }
     

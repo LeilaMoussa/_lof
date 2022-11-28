@@ -11,7 +11,7 @@
 
 ## Immediate Todos
 
-- [ ] add keys (ids) to labeled-mouse.txt
+- [x] add keys (ids) to labeled-mouse.txt
 - [x] fix comparator bug in RLOF
 - [ ] process expected labeled data sets
     - [x] (toy dataset: mouse)
@@ -21,7 +21,7 @@
     - [ ] shuttle?
     - [ ] settle on dataset with okay dimensionality
 - [x] debug RLOF sink file
-- [x] generate ROC curve for ILOF (satisfactory)
+- [x] generate ROC curve for ILOF (satisfactory, 90%)
 - [x] generate ROC curve for RLOF
     - [ ] with varying index
     - [ ] with varying k
@@ -35,5 +35,5 @@
 - [x] verify VP distances check out (they don't quite but needs further investigation)
 - [x] benchmark accuracy of TarsosLSH in a vacuum (done with random vectors)
 - [x] make producer.py read line by line
-- [ ] modify roc.py to parse sink file format and use keys instead of attributes
+- [x] modify roc.py to parse sink file format and use keys instead of attributes
 - [x] write as many "tests" (they're not really) as possible (WIP) -- write stuff to verify LSH!

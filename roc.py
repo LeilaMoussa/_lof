@@ -4,16 +4,13 @@ from sklearn.metrics import RocCurveDisplay
 from typing import List
 import math
 
-# NOTE: I need scikit-learn v1, which means I need Python3.7+.
-# Messing with python versions on Ubuntu can get dangerous.
-
 def getLabels(file: str, d: int) -> List[int]:
     ans = []
     with open(file, "r") as _in:
         data = _in.readlines()
-        data.sort() # to get same order
+        data.sort() # to get same order based on ids
         for line in data:
-            ans.append(int(line.strip().strip('\n').split()[d]))
+            ans.append(int(line.strip().strip('\n').split()[-1]))  # append label
     return ans
 
 # copied from https://scikit-learn.org/stable/auto_examples/miscellaneous/plot_outlier_detection_bench.html then modified
@@ -56,11 +53,7 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
     plt.show()
 
 if __name__ == '__main__':
-    # These files contain the data labeled as 0 (inlier) or 1 (outlier)
-    # python3 roc.py ILOF mouse rtlofs/ilof/labeled-stdout.txt ../labeled-mouse.txt 2
-    # python roc.py ILOF mouse labeled-stdout.txt labeled-mouse.txt 2
-    # python roc.py RLOF mouse labeled-stdout.txt labeled-mouse.txt 2
-
+    # These files contain the data labeled as 0 (inlier) or 1 (outlier) with the same ids
     # python roc.py ILOF mouse ilof.txt original.txt 2
     # python roc.py RLOF mouse rlof.txt original.txt 2
     # python roc.py RLOF ilof-mouse rlof.txt ilof.txt 2

@@ -375,7 +375,7 @@ public class ILOF {
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
     // Along each axis, there are 2 virtual points at each end of the hypersphere bounding the blackhole.
     V = 2 * d;
-    SINK = Utils.buildSinkFilename(config);
+    SINK = Utils.buildSinkFilename(config, false);
   }
 
   // this is a pretty nasty function signature
