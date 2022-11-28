@@ -31,7 +31,7 @@ public class Driver {
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
         StreamsBuilder builder = new StreamsBuilder();
-        KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
+        KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC")); // key: identifier, value: attributes
 
         KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Utils.parse(value,
                                                                                     " ",

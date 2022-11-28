@@ -7,6 +7,7 @@ public class VPoint extends Point {
     public Point center;
     private int hplane; // hyperplane
     private int position; // left or right for example
+    // key is null, as the only use of a key is to output labels, which VPs don't have
 
     public VPoint(Point center, ArrayList<Double> attributes) {
         this.center = center;

@@ -49,6 +49,7 @@ public class RLOF {
     public static long totalPoints;
     public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
     public static HashSet<KeyValue<String, Integer>> mapped;
+    public static String SINK;
 
     public static boolean summarizeFlag;
     public static boolean ageBasedDeletionFlag;
@@ -199,10 +200,9 @@ public class RLOF {
             for (Point x : toDelete) {
 
                 // you also want to add this point to labeled data
-                // temp:
                 if (!(x.getClass().equals(VPoint.class))) {
-                    //System.out.println(x + "" + labelPoint(x));
-                    mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
+                    //System.out.println(x.key + " " + labelPoint(x));
+                    mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 }
 
                 kNNs.remove(x);
@@ -276,8 +276,8 @@ public class RLOF {
         INLIER_PERCENTAGE = Integer.parseInt(config.get("INLIER_PERCENTAGE"));
         TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
         topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
-
         mapped = new HashSet<>();
+        SINK = Utils.buildSinkFilename(config);
     }
 
     // TODO: copy paste, make util?
@@ -291,6 +291,7 @@ public class RLOF {
         data
         .map((key, point) -> {
             mapped.clear();
+            point.setKey(key);
             totalPoints++;
             if (totalPoints == 1) {
                 startTime = System.nanoTime();
@@ -352,8 +353,8 @@ public class RLOF {
                 // print its labeled result here
                 // you also want to add this point to labeled data
                 // temp:
-                //System.out.println(point + "" + labelPoint(point));
-                mapped.add(new KeyValue<String, Integer>(point.toString(), labelPoint(point)));
+                //System.out.println(point.key + " " + labelPoint(point));
+                mapped.add(new KeyValue<String, Integer>(point.key, labelPoint(point)));
             }
             long end = System.nanoTime();
             //System.out.println("ilof subroutine took " + (end - start) / 1000000 + " ms");
@@ -369,7 +370,6 @@ public class RLOF {
             System.out.println(totalPoints);
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
                 long estimatedEndTime = System.nanoTime();
-                System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
 
                 // TODO: quite a bit of copy paste here from ILOF
                 for (Point x : window) {
@@ -378,15 +378,16 @@ public class RLOF {
                 assert(Tests.isMaxHeap(topOutliers));
                 for (Point x : window) {
                   //System.out.println(x + " " + LOFs.get(x));
-                  //System.out.println(x + "" + labelPoint(x));
-                  mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
+                  //System.out.println(x.key + " " + labelPoint(x));
+                  mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 };
                 //assert(Tests.isEq(mapped.size(), Integer.parseInt(config.get("TOTAL_POINTS"))));
+                System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
             }
             return mapped;
         })
         // TODO only build filename once you dumbo
-        .print(Printed.toFile(Utils.buildSinkFilename(config, summarizeFlag, ageBasedDeletionFlag)))
+        .print(Printed.toFile(SINK))
         ;
     }
 

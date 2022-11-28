@@ -4,7 +4,7 @@ from kafka.errors import TopicAlreadyExistsError
 import time, sys
 
 # python3 producer.py mouse-source-topic ../mouse.txt 0 2
-# python3 producer.py kdd9910pc-source-topic rtlofs/sampled.labeled.kddcup.data_10_percent 0 41
+# python3 producer.py kdd9910pc-source-topic rtlofs/sampled.labeled.keyed.kddcup._10_percent 0 41
 # python3 producer.py dummy-topic ../tiny-dummy.txt 0 2
 if __name__ == '__main__':
     [_, topic_name, source_file, interval_sec, d] = sys.argv
@@ -33,19 +33,20 @@ if __name__ == '__main__':
                 break
             line = line.strip().strip('\n')
             words = line.split()
-            if len(words) > d:  # if labeled
-                if words[d] == "0":
+            if len(words) > d + 1:  # if labeled
+                if words[d + 1] == "0":
                     _in += 1
-                elif words[d] == "1":
+                elif words[d + 1] == "1":
                     _out += 1
             line = ""
-            for i in range(d):
+            key = words[0]
+            for i in range(1, d+1): # account for key at idx 0
                 line += words[i] + " "
             line.strip()
-            print(count + 1, " - ", line)
-            producer.send(topic_name, line.encode())
+            print(count + 1, " - ", key, " - ", line)
+            producer.send(topic_name, value=line.encode(), key=key.encode())
             count += 1
             time.sleep(interval)
-    print("in, out", _in, _out)  # kdd9910%: 97278 396743  # does this make sense?
+    print("in, out", _in, _out)
 
     producer.close()

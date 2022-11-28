@@ -7,12 +7,17 @@ import be.tarsos.lsh.Vector;
 public class Point {
     ArrayList<Double> attributes;
     int dim;
+    String key; // kafka identifier
 
     protected Point() { }
 
     public Point(int d, ArrayList<Double> parsed) {
       this.dim = d;
       this.attributes = parsed;
+    }
+
+    public void setKey(String key) {
+      this.key = key;
     }
 
     public Double getAttribute(int index) {

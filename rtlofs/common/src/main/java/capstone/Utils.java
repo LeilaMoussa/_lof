@@ -25,7 +25,7 @@ public class Utils {
         return parsed;
     }
 
-    public static String buildSinkFilename(Dotenv config, boolean summarizeFlag, boolean ageBasedDeletionFlag) {
+    public static String buildSinkFilename(Dotenv config) {
         String name = config.get("DATASET") + 
                     "-d" + config.get("DIMENSIONS") + 
                     "-" + config.get("ALGORITHM") + 
@@ -36,13 +36,9 @@ public class Utils {
             name += "-h" + config.get("HASHES") + 
                     "-t" + config.get("HASHTABLES");
         }
-        if (summarizeFlag) {
-            name += "-w" + config.get("WINDOW") + 
-                    "-i" + config.get("INLIER_PERCENTAGE");
-        }
-        if (ageBasedDeletionFlag) {
-            name += "-a" + config.get("MAX_AGE");
-        }
+        name += "-w" + config.get("WINDOW") + 
+                "-i" + config.get("INLIER_PERCENTAGE");
+        name += "-a" + config.get("MAX_AGE");
         return name.toLowerCase();
     }
     

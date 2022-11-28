@@ -1,6 +1,7 @@
 # A very specific script to keep only selected anomalies from KDD9910pc and label data as 0 or 1
 def do():
     with open("../datasets/kddcup.data_10_percent_corrected", "r") as _in:
+        key = 1
         inlier = 0
         outlier = 0
         allowed = ["pod", "guess_passwd", 
@@ -9,7 +10,7 @@ def do():
         "multihop", "loadmodule", 
         "ftp_write", "buffer_overflow",
         "imap", "back"]
-        with open("rtlofs/sampled.labeled.kddcup.data_10_percent", "a") as _out:
+        with open("rtlofs/sampled.labeled.keyed.kddcup._10_percent", "a") as _out:
             while True:
                 line = _in.readline()
                 if not line:
@@ -23,8 +24,9 @@ def do():
                     outlier += 1
                 else:
                     continue
-                out = ' '.join(feats[0:41] + [label])
+                out = ' '.join([str(key)] + feats[0:41] + [label])
                 _out.write(out + '\n')
+                key += 1
         print(inlier, outlier)  # Total: 99921, inliers: 97278, outliers: 2643
 
 if __name__ == '__main__':

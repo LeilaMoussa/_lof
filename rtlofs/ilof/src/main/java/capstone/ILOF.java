@@ -35,6 +35,7 @@ public class ILOF {
 
   // These collections should only be initialized and used when standalone ILOF is run.
   public static HashSet<Point> pointStore;
+  public static HashMap<HashSet<Point>, Double> symDistances;
   // TODO: I'm not using the pq logic anymore!
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
   public static HashMap<Point, Double> kDistances;
@@ -56,6 +57,7 @@ public class ILOF {
   public static int HASHES;
   public static int HASHTABLES;
   public static int V;
+  public static String SINK;
 
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
@@ -100,8 +102,14 @@ public class ILOF {
 
     PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
     for (Point n : neighbors) {
-      //if (n.getClass().equals(VPoint.class))
-      pq.add(new Pair<Point, Double>(n, point.getDistanceTo(n, DISTANCE_MEASURE)));
+      Double dist;
+      if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, n)))) {
+        dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, n)));
+      } else {
+        dist = point.getDistanceTo(n, DISTANCE_MEASURE);
+        symDistances.put(new HashSet<Point>(Arrays.asList(point, n)), dist);
+      }
+      pq.add(new Pair<Point, Double>(n, dist));
     }
     // assert pq is max heap
     kNNs.put(point, pq);
@@ -130,14 +138,26 @@ public class ILOF {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
       pointStore.forEach(otherPoint -> {
         if (otherPoint.equals(point)) return;
-        Double distance = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
-        distances.add(new Pair<Point, Double>(otherPoint, distance));
+        Double dist;
+        if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, otherPoint)))) {
+          dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
+        } else {
+          dist = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
+          symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), dist);
+        }
+        distances.add(new Pair<Point, Double>(otherPoint, dist));
       });
       if (blackHoles != null) {
         ArrayList<VPoint> vps = deriveVirtualPoints();
         vps.forEach(vp -> {
-          Double distance = point.getDistanceTo(vp, DISTANCE_MEASURE);
-          distances.add(new Pair<Point, Double>(vp, distance));
+          Double dist;
+          if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, vp)))) {
+            dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, vp)));
+          } else {
+            dist = point.getDistanceTo(vp, DISTANCE_MEASURE);
+            symDistances.put(new HashSet<Point>(Arrays.asList(point, vp)), dist);
+          }
+          distances.add(new Pair<Point, Double>(vp, dist));
         });
       }
       assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
@@ -184,8 +204,14 @@ public class ILOF {
         } else {
           kdist = kDistances.get(neighbor);
         }
-        double reachDist = Math.max(kdist, 
-                                    point.getDistanceTo(neighbor, DISTANCE_MEASURE));
+        Double dist;
+        if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, neighbor)))) {
+          dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, neighbor)));
+        } else {
+          dist = point.getDistanceTo(neighbor, DISTANCE_MEASURE);
+          symDistances.put(new HashSet<Point>(Arrays.asList(point, neighbor)), dist);
+        }
+        Double reachDist = Math.max(kdist, dist);
         Pair<Point, Point> pair = new Pair<>(point, neighbor);
         reachDistances.put(pair, reachDist);
       });
@@ -223,7 +249,13 @@ public class ILOF {
     try {
       pointStore.forEach(x -> {
         if (x.equals(point)) return;
-        Double dist = point.getDistanceTo(x, DISTANCE_MEASURE);
+        Double dist;
+        if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, x)))) {
+          dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, x)));
+        } else {
+          dist = point.getDistanceTo(x, DISTANCE_MEASURE);
+          symDistances.put(new HashSet<Point>(Arrays.asList(point, x)), dist);
+        }
         if (kNNs.get(x).size() < k || dist <= kDistances.get(x)) {
           rknn.add(x);
         }
@@ -299,6 +331,7 @@ public class ILOF {
 
   public static void setup(Dotenv config) {
     pointStore = new HashSet<>();
+    symDistances = new HashMap<>();
     kNNs = new HashMap<>();
     kDistances = new HashMap<>();
     reachDistances = new HashMap<>();
@@ -316,6 +349,7 @@ public class ILOF {
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
     // Along each axis, there are 2 virtual points at each end of the hypersphere bounding the blackhole.
     V = 2 * d;
+    SINK = Utils.buildSinkFilename(config);
   }
 
   // this is a pretty nasty function signature
@@ -376,10 +410,15 @@ public class ILOF {
           } else {
             kdist = kDistances.get(neigh);
           }
+          Double dist;
+          if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(to_update, neigh)))) {
+            dist = symDistances.get(new HashSet<Point>(Arrays.asList(to_update, neigh)));
+          } else {
+            dist = to_update.getDistanceTo(neigh, DISTANCE_MEASURE);
+            symDistances.put(new HashSet<Point>(Arrays.asList(to_update, neigh)), dist);
+          }
           reachDistances.put(new Pair<>(to_update, neigh),
-                            Math.max(
-                              to_update.getDistanceTo(neigh, DISTANCE_MEASURE),
-                              kdist)
+                            Math.max(dist, kdist)
                             );
           
           if (neigh.equals(point) || neigh.getClass().equals(VPoint.class)) {
@@ -416,6 +455,7 @@ public class ILOF {
   public static void process(KStream<String, Point> data, Dotenv config) {
     setup(config);
     data.flatMap((key, point) -> {
+      point.setKey(key);
       pointStore.add(point);
       totalPoints++;
       if (totalPoints == 1) {
@@ -426,29 +466,27 @@ public class ILOF {
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
         long estimatedEndTime = System.nanoTime();
-        System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
         for (Point x : pointStore) {
           topOutliers.add(new Pair<>(x, LOFs.get(x)));
         };
         for (Point x : pointStore) {
-          // System.out.println(x);
-          // System.out.println(kNNs.get(x));
-          // System.out.println(kDistances.get(x));
-          // for (Pair<Point,Double> p : kNNs.get(x)) {
-          //   System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
-          // }
-          // System.out.println(LRDs.get(x));
-          // System.out.println(LOFs.get(x));
-          // System.out.println("label " + labelPoint(x));
-          System.out.println(x + "" + labelPoint(x));
-          mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
+          System.out.println(x);
+          System.out.println(kNNs.get(x));
+          System.out.println(kDistances.get(x));
+          for (Pair<Point,Double> p : kNNs.get(x)) {
+            System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
+          }
+          System.out.println(LRDs.get(x));
+          System.out.println(LOFs.get(x));
+          System.out.println("label " + labelPoint(x));
+          //System.out.println(x.key + " " + labelPoint(x));
+          mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
         };
+        System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
       }
       return mapped;
     })
-    // TODO: I don't like this format
-    // if i can't change the format from here, just gonna have to do it myself in roc.py
-    .print(Printed.toFile(Utils.buildSinkFilename(config, false, false)));
+    .print(Printed.toFile(SINK));
 
     // final Serde<String> stringSerde = Serdes.String();
     // <some_stream>.toStream().to("some-topic", Produced.with(stringSerde, stringSerde));
