@@ -24,6 +24,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 public class RLOF {
 
     public static HashSet<Point> window;
+    public static HashMap<HashSet<Point>, Double> symDistances;
     public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
     public static HashMap<Point, Double> kDistances;
     public static HashMap<Pair<Point, Point>, Double> reachDistances;
@@ -51,23 +52,18 @@ public class RLOF {
     public static HashSet<KeyValue<String, Integer>> mapped;
     public static String SINK;
 
-    public static boolean summarizeFlag;
-    public static boolean ageBasedDeletionFlag;
-
     public static long startTime;
 
     public static HashSet<Triplet<Point, Double, Integer>> findBlackholeIfAny(Point point) {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
         try {
-            long start = System.nanoTime();
             for (Triplet<Point, Double, Integer> triplet : blackHoles) {
                 Double distance = point.getDistanceTo(triplet.getValue0(), DISTANCE_MEASURE);
+                symDistances.put(new HashSet<Point>(Arrays.asList(point, triplet.getValue0())), distance);
                 if (distance <= triplet.getValue1()) {
                     found.add(triplet);
                 }
             }
-            long end = System.nanoTime();
-            //System.out.println("findBlackholeIfAny took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("findBlackholeIfAny " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -76,7 +72,6 @@ public class RLOF {
 
     public static void summarize() {
         try {
-            long start = System.nanoTime();
             final int numberTopInliers = (int)(window.size() * INLIER_PERCENTAGE / 100);
             // sort lofs asc
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
@@ -128,8 +123,6 @@ public class RLOF {
             int before = window.size();
             fullyDeleteRealPoints(toDelete);
             assert(Tests.isLessThan(window.size(), before));
-            long end = System.nanoTime();
-            //System.out.println("summarize took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("summarize " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -142,7 +135,6 @@ public class RLOF {
                                 HashMap<Pair<Point, Point>, Double> reachDistances,
                                 Double lrd) {
         try {
-            long start = System.nanoTime();
             Point center = blackHole.getValue0();
             int number = blackHole.getValue2();
             double newAvgKdist = (vpKdists.get(center) * number + kdistance) / (number + 1);
@@ -152,13 +144,13 @@ public class RLOF {
             vpKdists.put(center, newAvgKdist);
             vpLrds.put(center, newAvgLrd);
             // new_kdist is new radius
-            Double new_kdist = point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
+            Double new_kdist = symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, blackHole.getValue0()))) ?
+                                symDistances.get(new HashSet<Point>(Arrays.asList(point, blackHole.getValue0()))) :
+                                point.getDistanceTo(blackHole.getValue0(), DISTANCE_MEASURE);
             assert(Tests.isAtMost(new_kdist, blackHole.getValue1()));
             blackHoles.remove(blackHole);
             blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
             vpTimestamps.put(center, 0L);
-            long end = System.nanoTime();
-            //System.out.println("updatevps took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("updateVps " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -166,7 +158,6 @@ public class RLOF {
 
     public static void ageBasedDeletion() {
         try {
-            long start = System.nanoTime();
             HashSet<Point> toDelete = new HashSet<>();
             pointTimestamps.entrySet().forEach(entry -> {
                 if (entry.getValue() > MAX_AGE) {
@@ -186,8 +177,6 @@ public class RLOF {
             });
             fullyDeleteVirtualPoints(toDelete);
             assert(Tests.isAtMost(window.size(), before));
-            long end = System.nanoTime();
-            //System.out.println("ageBasedDeletion took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("ageBasedDeletion " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -195,7 +184,6 @@ public class RLOF {
 
     public static void fullyDeleteRealPoints(HashSet<Point> toDelete) {
         try {
-            long start = System.nanoTime();
             window.removeAll(toDelete);
             for (Point x : toDelete) {
 
@@ -220,9 +208,14 @@ public class RLOF {
                 for (Entry<Point, PriorityQueue<Pair<Point, Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
+                HashSet<HashSet<Point>> dkeys = new HashSet<>();
+                for (Entry<HashSet<Point>, Double> entry : symDistances.entrySet()) {
+                    if (entry.getKey().contains(x)) {
+                        dkeys.add(entry.getKey());
+                    }
+                }
+                symDistances.keySet().removeAll(dkeys);
             }
-            long end = System.nanoTime();
-            //System.out.println("fullyDeleteRealPoints took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("fullyDeleteRealPoints " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -231,7 +224,6 @@ public class RLOF {
     public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
         // toDelete is the set of blackhole centers
         try {
-            long start = System.nanoTime();
             blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
             for (Point x : toDelete) {
                 vpKdists.remove(x);
@@ -248,9 +240,14 @@ public class RLOF {
                 for (Entry<Point, PriorityQueue<Pair<Point, Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
+                HashSet<HashSet<Point>> dkeys = new HashSet<>();
+                for (Entry<HashSet<Point>, Double> entry : symDistances.entrySet()) {
+                    if (entry.getKey().contains(x)) {
+                        dkeys.add(entry.getKey());
+                    }
+                }
+                symDistances.keySet().removeAll(dkeys);
             }
-            long end = System.nanoTime();
-            //System.out.println("fullyDeleteVirtualPoints took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("fullyDeleteVirtualPoints " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -258,6 +255,7 @@ public class RLOF {
 
     public static void setup(Dotenv config) {
         window = new HashSet<>();
+        symDistances = new HashMap<>();
         kNNs = new HashMap<>();
         kDistances = new HashMap<>();
         reachDistances = new HashMap<>();
@@ -300,7 +298,6 @@ public class RLOF {
             return new KeyValue<Point, HashSet<Triplet<Point, Double, Integer>>>(point, triplets);
         })
         .flatMap((point, triplets) -> {
-            long start = System.nanoTime();
             if (triplets.size() == 0) {
                 // This is new point which is not immediately summarized
                 // so ILOF reflects the point on all collections.
@@ -308,6 +305,7 @@ public class RLOF {
                 window.add(point);
                 ILOF.ilofSubroutineForRlof(point,
                                     window,
+                                    symDistances,
                                     kNNs,
                                     kDistances,
                                     reachDistances,
@@ -330,18 +328,23 @@ public class RLOF {
                 HashMap<Pair<Point, Point>, Double> deepReachDistances = new HashMap<>(reachDistances);
                 HashMap<Point, Double> deepLrds = new HashMap<>(LRDs);
                 HashMap<Point, Double> deepLofs = new HashMap<>(LOFs);
+                HashMap<HashSet<Point>, Double> deepSymDistances = new HashMap<>(symDistances);
                 
                 ILOF.ilofSubroutineForRlof(point,
                                     deepWindow,
+                                    deepSymDistances,
                                     deepkNNs,
                                     deepkDistances,
                                     deepReachDistances,
                                     deepLrds,
                                     deepLofs,
+                                    // the following three collections are never mutated anyway in ILOF
                                     blackHoles,
                                     vpKdists,
                                     vpLrds,
                                     config);
+
+                // assert the point has not affected the collections
 
                 for (Triplet<Point,Double,Integer> triplet : triplets) {
                     updateVps(triplet, point, deepkNNs.get(point), deepkDistances.get(point),
@@ -356,14 +359,10 @@ public class RLOF {
                 //System.out.println(point.key + " " + labelPoint(point));
                 mapped.add(new KeyValue<String, Integer>(point.key, labelPoint(point)));
             }
-            long end = System.nanoTime();
-            //System.out.println("ilof subroutine took " + (end - start) / 1000000 + " ms");
             if (window.size() >= W) {
-                summarizeFlag = true;
                 summarize();
             }
             if (window.size() >= W) {
-                ageBasedDeletionFlag = true;
                 ageBasedDeletion();
             }
 

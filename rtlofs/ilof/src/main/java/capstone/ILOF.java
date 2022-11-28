@@ -244,7 +244,24 @@ public class ILOF {
     return rknn;
   }
 
-  public static HashSet<Point> computeRkNN(Point point) {
+  private static boolean allNeighsOnPerim(PriorityQueue<Pair<Point, Double>> knn, Double oldkDist) {
+    for (Pair<Point, Double> pair : knn) {
+      if (Double.compare(pair.getValue1(), oldkDist) != 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public static PriorityQueue<Pair<Point, Double>> ejectFarthest(PriorityQueue<Pair<Point, Double>> knn, Double oldkDist) {
+    if (allNeighsOnPerim(knn, oldkDist)) return knn;
+    while (knn.peek().getValue1().equals(oldkDist)) {
+      knn.poll();
+    }
+    return knn;
+  }
+
+  public static HashSet<Point> computeRkNNAndUpdateTheirkNNs(Point point) {
     HashSet<Point> rknn = new HashSet<>();
     try {
       pointStore.forEach(x -> {
@@ -256,8 +273,15 @@ public class ILOF {
           dist = point.getDistanceTo(x, DISTANCE_MEASURE);
           symDistances.put(new HashSet<Point>(Arrays.asList(point, x)), dist);
         }
-        if (kNNs.get(x).size() < k || dist <= kDistances.get(x)) {
+        if (kNNs.get(x).size() < k || Double.compare(dist, kDistances.get(x)) <= 0) {
           rknn.add(x);
+          if (kNNs.get(x).size() >= k && dist < kDistances.get(x)) {
+            // eject neighbors on the old neighborhood perimeter
+            // if there's no more space and the new point is not on that perimeter
+            kNNs.put(x, ejectFarthest(kNNs.get(x), kDistances.get(x)));
+          }
+          kNNs.get(x).add(new Pair<>(point, dist));
+          kDistances.put(x, kNNs.get(x).peek().getValue1());
         }
       });
     } catch (Exception e) {
@@ -355,6 +379,7 @@ public class ILOF {
   // this is a pretty nasty function signature
   public static void ilofSubroutineForRlof(Point point,
                                           HashSet<Point> window,
+                                          HashMap<HashSet<Point>, Double> rlofSymDistances,
                                           HashMap<Point, PriorityQueue<Pair<Point, Double>>> rlofkNNs,
                                           HashMap<Point, Double> rlofkDistances,
                                           HashMap<Pair<Point, Point>, Double> rlofreachDistances,
@@ -369,14 +394,15 @@ public class ILOF {
     // reminder to self: i did this to avoid circular dependency
 
     pointStore = window;
+    symDistances = rlofSymDistances;
     kNNs = rlofkNNs;
     kDistances = rlofkDistances;
     reachDistances = rlofreachDistances;
     LRDs = rlofLRDs;
     LOFs = rlofLOFs;
-    blackHoles = new HashSet<>(rlofBlackHoles);
-    vpKdists = new HashMap<>(rlofVpKdists);
-    vpLrds = new HashMap<>(rlofVpLrds);
+    blackHoles = rlofBlackHoles;
+    vpKdists = rlofVpKdists;
+    vpLrds = rlofVpLrds;
 
     computeProfileAndMaintainWindow(point);
   }
@@ -385,14 +411,15 @@ public class ILOF {
     try {
       getkNN(point, NNS_TECHNIQUE);
       getRds(point);
-      HashSet<Point> update_kdist = computeRkNN(point);
+      HashSet<Point> update_kdist = computeRkNNAndUpdateTheirkNNs(point);
       assert(Tests.noVirtualPointsAreToBeUpdated(update_kdist));
-      for (Point to_update : update_kdist) {
-        // TODO: i could write updatekDist() that performs the update logic from querykNN()
-        // for slightly better performance => i should do this (i.e. push and pop logic)
-        // NOTE: that would only be useful for flatsearch
-        getkNN(to_update, NNS_TECHNIQUE);
-      }
+      // for (Point to_update : update_kdist) {
+      //   // TODO: i could write updatekDist() that performs the update logic from querykNN()
+      //   // for slightly better performance => i should do this (i.e. push and pop logic)
+      //   // NOTE: that would only be useful for flatsearch
+      //   // UPDATE: after adding kdist in lsh, this should work there too
+      //   //getkNN(to_update, NNS_TECHNIQUE);
+      // }
       HashSet<Point> update_lrd = new HashSet<>(update_kdist);
       for (Point to_update : update_kdist) {
         for (Pair<Point, Double> n : kNNs.get(to_update)) {
@@ -461,7 +488,7 @@ public class ILOF {
       if (totalPoints == 1) {
         startTime = System.nanoTime();
     }
-      System.out.println("" + totalPoints);
+      //System.out.println("" + totalPoints);
       computeProfileAndMaintainWindow(point);
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
@@ -470,15 +497,15 @@ public class ILOF {
           topOutliers.add(new Pair<>(x, LOFs.get(x)));
         };
         for (Point x : pointStore) {
-          System.out.println(x);
-          System.out.println(kNNs.get(x));
-          System.out.println(kDistances.get(x));
-          for (Pair<Point,Double> p : kNNs.get(x)) {
-            System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
-          }
-          System.out.println(LRDs.get(x));
-          System.out.println(LOFs.get(x));
-          System.out.println("label " + labelPoint(x));
+          // System.out.println(x);
+          // System.out.println(kNNs.get(x));
+          // System.out.println(kDistances.get(x));
+          // for (Pair<Point,Double> p : kNNs.get(x)) {
+          //   System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
+          // }
+          // System.out.println(LRDs.get(x));
+          // System.out.println(LOFs.get(x));
+          // System.out.println("label " + labelPoint(x));
           //System.out.println(x.key + " " + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
         };
