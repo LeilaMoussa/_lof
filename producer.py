@@ -3,6 +3,9 @@ from kafka.admin import NewTopic
 from kafka.errors import TopicAlreadyExistsError
 import time, sys
 
+# Important: ../mouse.txt has no keys (ids) so this will fail
+# must add ids to that file before attempting to populate topic to get new results.
+
 # python3 producer.py mouse-source-topic ../mouse.txt 0 2
 # python3 producer.py kdd9910pc-source-topic rtlofs/sampled.labeled.keyed.kddcup._10_percent 0 41
 # python3 producer.py dummy-topic ../tiny-dummy.txt 0 2
