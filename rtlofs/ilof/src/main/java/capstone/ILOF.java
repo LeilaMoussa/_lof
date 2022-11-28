@@ -1,14 +1,11 @@
 package capstone;
 
-import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.kstream.Printed;
 
 import com.google.common.collect.MinMaxPriorityQueue;
@@ -63,6 +60,8 @@ public class ILOF {
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
 
+  public static long startTime;
+
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
     List<Vector> dataset = Sets.difference(pointStore, new HashSet<Point>(Arrays.asList(point))).stream().map(Point::toVector).collect(Collectors.toList());
@@ -101,6 +100,7 @@ public class ILOF {
 
     PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
     for (Point n : neighbors) {
+      //if (n.getClass().equals(VPoint.class))
       pq.add(new Pair<Point, Double>(n, point.getDistanceTo(n, DISTANCE_MEASURE)));
     }
     // assert pq is max heap
@@ -141,7 +141,6 @@ public class ILOF {
         });
       }
       assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
-      // asc
       distances.sort(PointComparator.comparator());
       if (distances.size() >= 2) {
         assert(Tests.isSortedAscending(distances));
@@ -153,7 +152,6 @@ public class ILOF {
       kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
       int i = k;
       for (; i < distances.size() && distances.get(i).getValue1().equals(kdist); i++) { }
-      // in pq, max distance is at head of heap
       PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
       if (distances.size() > 0) {
         pq.addAll(distances.subList(0, Math.min(i, distances.size())));
@@ -334,7 +332,6 @@ public class ILOF {
                                           Dotenv config) {
     // TODO: There's some overlap between RLOF.setup() and ILOF.setup()
     setup(config);
-    // hopefully, these act as aliases
     // reminder to self: i did this to avoid circular dependency
 
     pointStore = window;
@@ -421,9 +418,15 @@ public class ILOF {
     data.flatMap((key, point) -> {
       pointStore.add(point);
       totalPoints++;
+      if (totalPoints == 1) {
+        startTime = System.nanoTime();
+    }
+      System.out.println("" + totalPoints);
       computeProfileAndMaintainWindow(point);
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
+        long estimatedEndTime = System.nanoTime();
+        System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
         for (Point x : pointStore) {
           topOutliers.add(new Pair<>(x, LOFs.get(x)));
         };

@@ -11,6 +11,7 @@ public class VPoint extends Point {
     public VPoint(Point center, ArrayList<Double> attributes) {
         this.center = center;
         this.attributes = attributes;
+        this.dim = attributes.size();
     }
 
     public VPoint(Point center, double radius, int d, int hplane, int position) {
@@ -47,6 +48,7 @@ public class VPoint extends Point {
 
     @Override
     public String toString() {
-      return "VP (" + this.center + ", " + this.hplane + " , " + this.position + ")";
+      //return "VP (" + this.center + ", " + this.hplane + " , " + this.position + ")";
+      return "VP( " + this.attributes + " )";
     }
 }

@@ -16,7 +16,7 @@ public class Point {
     }
 
     public Double getAttribute(int index) {
-      return index < this.dim ? this.attributes.get(index) : null;
+      return this.attributes.get(index);
     }
 
     public Double getDistanceTo(Point other, String distanceMeasure) {

@@ -4,7 +4,7 @@ from kafka.errors import TopicAlreadyExistsError
 import time, sys
 
 # python3 producer.py mouse-source-topic ../mouse.txt 0 2
-# python3 producer.py kdd9910pc-source-topic rtlofs/kddcup.data_10_percent_corrected 0 41
+# python3 producer.py kdd9910pc-source-topic rtlofs/sampled.labeled.kddcup.data_10_percent 0 41
 # python3 producer.py dummy-topic ../tiny-dummy.txt 0 2
 if __name__ == '__main__':
     [_, topic_name, source_file, interval_sec, d] = sys.argv

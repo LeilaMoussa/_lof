@@ -1,6 +1,5 @@
 package capstone;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,8 +31,6 @@ public class RLOF {
     public static HashMap<Point, Double> LOFs;
 
     public static HashSet<Triplet<Point, Double, Integer>> blackHoles; // Center, Radius, Number
-    // does this defeat the whole purpose of summarization?
-    public static HashSet<VPoint> vps;
     // profiles of vps, where the keys are the blackhole centers
     public static HashMap<Point, Double> vpKdists;
     public static HashMap<Point, Double> vpLrds;
@@ -51,7 +48,7 @@ public class RLOF {
     public static int TOP_N;
     public static long totalPoints;
     public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
-    public static ArrayList<KeyValue<String, Integer>> mapped;
+    public static HashSet<KeyValue<String, Integer>> mapped;
 
     public static boolean summarizeFlag;
     public static boolean ageBasedDeletionFlag;
@@ -61,12 +58,15 @@ public class RLOF {
     public static HashSet<Triplet<Point, Double, Integer>> findBlackholeIfAny(Point point) {
         HashSet<Triplet<Point, Double, Integer>> found = new HashSet<>();
         try {
+            long start = System.nanoTime();
             for (Triplet<Point, Double, Integer> triplet : blackHoles) {
                 Double distance = point.getDistanceTo(triplet.getValue0(), DISTANCE_MEASURE);
                 if (distance <= triplet.getValue1()) {
                     found.add(triplet);
                 }
             }
+            long end = System.nanoTime();
+            //System.out.println("findBlackholeIfAny took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("findBlackholeIfAny " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -75,6 +75,7 @@ public class RLOF {
 
     public static void summarize() {
         try {
+            long start = System.nanoTime();
             final int numberTopInliers = (int)(window.size() * INLIER_PERCENTAGE / 100);
             // sort lofs asc
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
@@ -126,6 +127,8 @@ public class RLOF {
             int before = window.size();
             fullyDeleteRealPoints(toDelete);
             assert(Tests.isLessThan(window.size(), before));
+            long end = System.nanoTime();
+            //System.out.println("summarize took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("summarize " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -138,6 +141,7 @@ public class RLOF {
                                 HashMap<Pair<Point, Point>, Double> reachDistances,
                                 Double lrd) {
         try {
+            long start = System.nanoTime();
             Point center = blackHole.getValue0();
             int number = blackHole.getValue2();
             double newAvgKdist = (vpKdists.get(center) * number + kdistance) / (number + 1);
@@ -152,15 +156,16 @@ public class RLOF {
             blackHoles.remove(blackHole);
             blackHoles.add(new Triplet<Point,Double,Integer>(center, new_kdist, number+1));
             vpTimestamps.put(center, 0L);
+            long end = System.nanoTime();
+            //System.out.println("updatevps took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("updateVps " + e + e.getStackTrace()[0].getLineNumber());
         }
     }
 
     public static void ageBasedDeletion() {
-        // but do we do this in batch? Because otherwise, this is equivalent to dequeueing every time we enqueue
-        // and in this case since i'm not quite using a queue, it's a loop every time!
         try {
+            long start = System.nanoTime();
             HashSet<Point> toDelete = new HashSet<>();
             pointTimestamps.entrySet().forEach(entry -> {
                 if (entry.getValue() > MAX_AGE) {
@@ -180,25 +185,23 @@ public class RLOF {
             });
             fullyDeleteVirtualPoints(toDelete);
             assert(Tests.isAtMost(window.size(), before));
+            long end = System.nanoTime();
+            //System.out.println("ageBasedDeletion took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("ageBasedDeletion " + e + e.getStackTrace()[0].getLineNumber());
         }
     }
 
     public static void fullyDeleteRealPoints(HashSet<Point> toDelete) {
-        // toDelete may contain inliers (from summarize)
-        // or old in/outliers from age-based deletion (though probably likelier to be old outliers)
-        // in any case, these points don't make it to the end of the stream and the final window
-        // the fact that they may be labeled as outliers here means they were outliers ar that point in time
-        // but they're not necessarily outliers in the absolute (which is a natural consequence of summarization)
         try {
+            long start = System.nanoTime();
             window.removeAll(toDelete);
             for (Point x : toDelete) {
 
                 // you also want to add this point to labeled data
                 // temp:
                 if (!(x.getClass().equals(VPoint.class))) {
-                    System.out.println(x + "" + labelPoint(x));
+                    //System.out.println(x + "" + labelPoint(x));
                     mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
                 }
 
@@ -218,6 +221,8 @@ public class RLOF {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
             }
+            long end = System.nanoTime();
+            //System.out.println("fullyDeleteRealPoints took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("fullyDeleteRealPoints " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -226,6 +231,7 @@ public class RLOF {
     public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
         // toDelete is the set of blackhole centers
         try {
+            long start = System.nanoTime();
             blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
             for (Point x : toDelete) {
                 vpKdists.remove(x);
@@ -242,8 +248,9 @@ public class RLOF {
                 for (Entry<Point, PriorityQueue<Pair<Point, Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
-
             }
+            long end = System.nanoTime();
+            //System.out.println("fullyDeleteVirtualPoints took " + (end - start) / 1000000 + " ms");
         } catch (Exception e) {
             System.out.println("fullyDeleteVirtualPoints " + e + e.getStackTrace()[0].getLineNumber());
         }
@@ -270,7 +277,7 @@ public class RLOF {
         TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
         topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
 
-        mapped = new ArrayList<>();
+        mapped = new HashSet<>();
     }
 
     // TODO: copy paste, make util?
@@ -283,6 +290,7 @@ public class RLOF {
 
         data
         .map((key, point) -> {
+            mapped.clear();
             totalPoints++;
             if (totalPoints == 1) {
                 startTime = System.nanoTime();
@@ -291,6 +299,7 @@ public class RLOF {
             return new KeyValue<Point, HashSet<Triplet<Point, Double, Integer>>>(point, triplets);
         })
         .flatMap((point, triplets) -> {
+            long start = System.nanoTime();
             if (triplets.size() == 0) {
                 // This is new point which is not immediately summarized
                 // so ILOF reflects the point on all collections.
@@ -343,9 +352,11 @@ public class RLOF {
                 // print its labeled result here
                 // you also want to add this point to labeled data
                 // temp:
-                System.out.println(point + "" + labelPoint(point));
+                //System.out.println(point + "" + labelPoint(point));
                 mapped.add(new KeyValue<String, Integer>(point.toString(), labelPoint(point)));
             }
+            long end = System.nanoTime();
+            //System.out.println("ilof subroutine took " + (end - start) / 1000000 + " ms");
             if (window.size() >= W) {
                 summarizeFlag = true;
                 summarize();
@@ -355,20 +366,10 @@ public class RLOF {
                 ageBasedDeletion();
             }
 
+            System.out.println(totalPoints);
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
                 long estimatedEndTime = System.nanoTime();
-                System.out.println("estimated time elapsed " + (estimatedEndTime - startTime) / 1000000);
-                // by the end of the test data stream
-                // the points in the window is but a subset
-                // the others which were deleted were either assumed to be inliers (summarize)
-                // or were old
-                // old points can be outliers too
-                // so before deleting an old real point, add it to topOutliers heap
-                // don't bother to do the same with summarized points or old blackholes (those are just vps anyway, can't possibly be outliers)
-
-                // update: only <= W points are printed here
-                // whereas we want all TOP_N points to stay persisted
-                // so print the real point (to stdout or file) when it's deleted
+                System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
 
                 // TODO: quite a bit of copy paste here from ILOF
                 for (Point x : window) {
@@ -377,14 +378,16 @@ public class RLOF {
                 assert(Tests.isMaxHeap(topOutliers));
                 for (Point x : window) {
                   //System.out.println(x + " " + LOFs.get(x));
-                  System.out.println(x + "" + labelPoint(x));
+                  //System.out.println(x + "" + labelPoint(x));
                   mapped.add(new KeyValue<String, Integer>(x.toString(), labelPoint(x)));
                 };
-                assert(Tests.isEq(mapped.size(), Integer.parseInt(config.get("TOTAL_POINTS"))));
+                //assert(Tests.isEq(mapped.size(), Integer.parseInt(config.get("TOTAL_POINTS"))));
             }
             return mapped;
         })
-        .print(Printed.toFile(Utils.buildSinkFilename(config, summarizeFlag, ageBasedDeletionFlag)));
+        // TODO only build filename once you dumbo
+        .print(Printed.toFile(Utils.buildSinkFilename(config, summarizeFlag, ageBasedDeletionFlag)))
+        ;
     }
 
     public static void main(String[] args) {

@@ -22,7 +22,7 @@ public class Utils {
             }
             parsed.add(doubleVal);
         }
-        return parsed;
+        return new ArrayList<>(parsed.subList(0, 2));
     }
 
     public static String buildSinkFilename(Dotenv config, boolean summarizeFlag, boolean ageBasedDeletionFlag) {
@@ -30,7 +30,7 @@ public class Utils {
                     "-d" + config.get("DIMENSIONS") + 
                     "-" + config.get("ALGORITHM") + 
                     "-k" + config.get("k") + 
-                    "-" + config.get("DISTANCE_MEASURE").substring(0, 4) + 
+                    "-" + config.get("DISTANCE_MEASURE").substring(0, 3) + 
                     "-" + config.get("ANNS");
         if (config.get("ANNS").equals("LSH")) {
             name += "-h" + config.get("HASHES") + 
@@ -43,7 +43,7 @@ public class Utils {
         if (ageBasedDeletionFlag) {
             name += "-a" + config.get("MAX_AGE");
         }
-        return name;
+        return name.toLowerCase();
     }
     
 }
