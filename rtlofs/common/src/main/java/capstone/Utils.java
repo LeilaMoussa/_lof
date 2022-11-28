@@ -22,7 +22,7 @@ public class Utils {
             }
             parsed.add(doubleVal);
         }
-        return new ArrayList<>(parsed.subList(0, 2));
+        return parsed;
     }
 
     public static String buildSinkFilename(Dotenv config, boolean summarizeFlag, boolean ageBasedDeletionFlag) {
