@@ -68,7 +68,9 @@ public class ILOF {
     HashFamily hashFamily = null;
     List<Vector> dataset = Sets.difference(pointStore, new HashSet<Point>(Arrays.asList(point))).stream().map(Point::toVector).collect(Collectors.toList());
     // assert dataset doesn't contain point
-    dataset.addAll(deriveVirtualPoints().stream().map(Point::toVector).collect(Collectors.toList()));
+    if (blackHoles != null && blackHoles.size() > 0) {
+      dataset.addAll(deriveVirtualPoints().stream().map(Point::toVector).collect(Collectors.toList()));
+    }
     // assert all vectors with non null keys in dataset sum up to blackholes * 2 * d
     switch (DISTANCE_MEASURE) {
       case "EUCLIDEAN":
@@ -147,7 +149,7 @@ public class ILOF {
         }
         distances.add(new Pair<Point, Double>(otherPoint, dist));
       });
-      if (blackHoles != null) {
+      if (blackHoles != null && blackHoles.size() > 0) {
         ArrayList<VPoint> vps = deriveVirtualPoints();
         vps.forEach(vp -> {
           Double dist;
