@@ -148,6 +148,7 @@ public class Vector implements Serializable {
 	
 	public String toString(){
 		StringBuilder sb= new StringBuilder();
+		sb.append(this.key).append(" : ");
 		//sb.append("values:[");
 		for(int d=0; d < getDimensions() - 1; d++) {
 			sb.append(values[d]).append(", ");

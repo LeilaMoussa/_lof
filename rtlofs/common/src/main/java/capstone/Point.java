@@ -5,13 +5,19 @@ import java.util.ArrayList;
 import be.tarsos.lsh.Vector;
 
 public class Point {
-    ArrayList<Double> attributes;
-    int dim;
-    String key; // kafka identifier
+    public ArrayList<Double> attributes;
+    public int dim;
+    public String key; // kafka identifier
 
     protected Point() { }
 
     public Point(int d, ArrayList<Double> parsed) {
+      this.dim = d;
+      this.attributes = parsed;
+    }
+
+    public Point(String key, int d, ArrayList<Double> parsed) {
+      this.key = key;
       this.dim = d;
       this.attributes = parsed;
     }
@@ -61,10 +67,14 @@ public class Point {
       for (int i = 0; i < this.dim; i++) {
         arr[i] = this.getAttribute(i);
       }
+      // TODO maybe set vp key at creation
       String key = null;
       if (this.getClass().equals(VPoint.class)) {
         key = ((VPoint)this).center.toString();
-      };
+      }
+      // else {
+      //   key = this.key; // TODO BUG VERY PROBLEMATIC
+      // }
       return new Vector(key, arr);
     }
 
@@ -77,7 +87,7 @@ public class Point {
       if (v.getKey() != null) {
         return new VPoint(Utils.parse(v.getKey(), " ", attrs.size()), attrs);
       }
-      return new Point(arr.length, attrs);
+      return new Point(v.getKey(), arr.length, attrs);
     }
 
     @Override

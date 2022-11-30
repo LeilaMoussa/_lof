@@ -3,6 +3,7 @@ package capstone;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 
 import com.google.common.collect.MinMaxPriorityQueue;
@@ -161,6 +162,58 @@ public class Tests {
     public static boolean isEq(int a, int b) {
         System.out.println("17 with " + a + " " + b);
         return a == b;
+    }
+
+    public static boolean pointHasNotAffectedRlof(Point point, HashSet<Point> window, 
+                                                HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs, HashMap<Point, Double> kDistances, 
+                                                HashMap<Pair<Point, Point>, Double> reachDistances, HashMap<Point, Double> LRDs, HashMap<Point, Double> LOFs, 
+                                                HashMap<HashSet<Point>, Double> symDistances) {
+        System.out.println("18");
+        if (window.contains(point)) {
+            System.out.println("18.1");
+            return false;
+        }
+        if (kNNs.containsKey(point)) {
+            System.out.println("18.2");
+            return false;
+        }
+        if (kDistances.containsKey(point)) {
+            System.out.println("18.3");
+            return false;
+        }
+        if (LRDs.containsKey(point)) {
+            System.out.println("18.4");
+            return false;
+        }
+        if (LOFs.containsKey(point)) {
+            System.out.println("18.5");
+            return false;
+        }
+        for (Entry<Point,PriorityQueue<Pair<Point,Double>>> entry : kNNs.entrySet()) {
+            for (Pair<Point,Double> value : entry.getValue()) {
+                if (value.getValue0().equals(point)) {
+                    System.out.println("18.6");
+                    return false;
+                }
+            }
+        }
+        for (Entry<Pair<Point,Point>,Double> entry : reachDistances.entrySet()) {
+            if (entry.getKey().getValue0().equals(point)) {
+                System.out.println("18.7");
+                return false;
+            }
+            if (entry.getKey().getValue1().equals(point)) {
+                System.out.println("18.8");
+                return false;
+            }
+        }
+        for (Entry<HashSet<Point>,Double> entry : symDistances.entrySet()) {
+            if (entry.getKey().contains(point)) {
+                System.out.println("18.9");
+                return false;
+            }
+        }
+        return true;
     }
 
 }
