@@ -189,9 +189,6 @@ public class RLOF {
                 // you also want to add this point to labeled data
                 if (!(x.getClass().equals(VPoint.class))) {
                     //System.out.println(x.key + " " + labelPoint(x));
-                    if (x.key == null) {
-                        System.out.println("1 " + x);
-                    }
                     mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 }
 
@@ -320,8 +317,8 @@ public class RLOF {
                 for (Triplet<Point,Double,Integer> triplet : triplets) {
                     updateVps(triplet, point, kNNs.get(point), kDistances.get(point), reachDistances, LRDs.get(point));
                 }
-
                 fullyDeleteRealPoints(new HashSet<Point>(Arrays.asList(point)));
+
                 assert(Tests.pointHasNotAffectedRlof(point, window, kNNs, kDistances, reachDistances, LRDs, LOFs, symDistances));
 
                 //System.out.println(point.key + " " + labelPoint(point));

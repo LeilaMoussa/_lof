@@ -46,6 +46,8 @@ public class Vector implements Serializable {
 	 */
 	private String key;
 
+	public boolean virtual = false;
+
 	/**
 	 * Creates a new vector with the requested number of dimensions.
 	 * @param dimensions The number of dimensions.
@@ -72,6 +74,12 @@ public class Vector implements Serializable {
 	public Vector(String key,double[] values){
 		this.values = values;
 		this.key = key;
+	}
+
+	public Vector(String key,double[] values, boolean virtual){
+		this.values = values;
+		this.key = key;
+		this.virtual = virtual;
 	}
 	
 	/**

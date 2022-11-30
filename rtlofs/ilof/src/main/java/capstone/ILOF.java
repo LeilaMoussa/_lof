@@ -477,7 +477,8 @@ public class ILOF {
       }
       getLof(point);
     } catch (Exception e) {
-      System.out.println("computeProfileAndMaintainWindow " + e + " " + e.getStackTrace()[0].getLineNumber());
+      System.out.println("computeProfileAndMaintainWindow " + e);
+      e.printStackTrace();
     }
   }
 
@@ -511,7 +512,7 @@ public class ILOF {
           //System.out.println(x.key + " " + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
         };
-        System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
+        System.out.println("Estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
       }
       return mapped;
     })

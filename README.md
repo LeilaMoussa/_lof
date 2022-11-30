@@ -11,7 +11,7 @@
 
 ## Immediate Todos
 
-- [ ] fix problem with keys
+- [x] fix problem with keys
 - [ ] double check printing of mapped in RLOF with smaller dataset
 - [x] add keys (ids) to labeled-mouse.txt
 - [x] fix comparator bug in RLOF

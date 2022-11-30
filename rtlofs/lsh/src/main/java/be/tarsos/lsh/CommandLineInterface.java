@@ -166,7 +166,7 @@ public class CommandLineInterface {
 										int numberOfHashTables, List<Vector> queries, int numberOfNeighbours) {
 		List<List<Vector>> ans = new ArrayList<>();
 		LSH lsh = new LSH(dataset, family);
-		lsh.buildIndex(numberOfHashes, numberOfHashTables);		
+		lsh.buildIndex(numberOfHashes, numberOfHashTables);
 		if(queries != null){
 			for(Vector query:queries){
 				List<Vector> neighbours = lsh.query(query, numberOfNeighbours);

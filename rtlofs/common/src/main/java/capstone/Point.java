@@ -67,15 +67,13 @@ public class Point {
       for (int i = 0; i < this.dim; i++) {
         arr[i] = this.getAttribute(i);
       }
-      // TODO maybe set vp key at creation
-      String key = null;
+      String key = this.key;
+      boolean virtual = false;
       if (this.getClass().equals(VPoint.class)) {
+        virtual = true;
         key = ((VPoint)this).center.toString();
       }
-      // else {
-      //   key = this.key; // TODO BUG VERY PROBLEMATIC
-      // }
-      return new Vector(key, arr);
+      return new Vector(key, arr, virtual);
     }
 
     public static Point fromVector(Vector v) {
@@ -84,7 +82,7 @@ public class Point {
       for (double x : arr) {
         attrs.add(x);
       }
-      if (v.getKey() != null) {
+      if (v.virtual) {
         return new VPoint(Utils.parse(v.getKey(), " ", attrs.size()), attrs);
       }
       return new Point(v.getKey(), arr.length, attrs);
