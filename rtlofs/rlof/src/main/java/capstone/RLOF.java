@@ -301,38 +301,7 @@ public class RLOF {
         })
         .flatMap((point, triplets) -> {
             window.add(point);
-            // TODO merge these ifs where overlap
-            if (triplets.size() == 0) {
-                // This is new point which is not immediately summarized
-                // so ILOF reflects the point on all collections.
-                // shallow copy, i.e. mutate original collections
-                
-                ILOF.ilofSubroutineForRlof(point,
-                                    window,
-                                    symDistances,
-                                    kNNs,
-                                    kDistances,
-                                    reachDistances,
-                                    LRDs,
-                                    LOFs,
-                                    blackHoles,
-                                    vpKdists,
-                                    vpLrds,
-                                    config);
-                pointTimestamps.put(point, ts++);
-            } else {
-                // We want ILOF to pretend that the point is there
-                // but RLOF to discard the point
-                // deep copy, i.e. don't mutate collections
-                // HashSet<Point> deepWindow = new HashSet<>(window);
-                // deepWindow.add(point);
-                // HashMap<Point, PriorityQueue<Pair<Point, Double>>> deepkNNs = new HashMap<>(kNNs);
-                // HashMap<Point, Double> deepkDistances = new HashMap<>(kDistances);
-                // HashMap<Pair<Point, Point>, Double> deepReachDistances = new HashMap<>(reachDistances);
-                // HashMap<Point, Double> deepLrds = new HashMap<>(LRDs);
-                // HashMap<Point, Double> deepLofs = new HashMap<>(LOFs);
-                // HashMap<HashSet<Point>, Double> deepSymDistances = new HashMap<>(symDistances);
-                ILOF.ilofSubroutineForRlof(point,
+            ILOF.ilofSubroutineForRlof(point,
                                     window,
                                     symDistances,
                                     kNNs,
@@ -345,6 +314,9 @@ public class RLOF {
                                     vpLrds,
                                     config);
 
+            if (triplets.size() == 0) {
+                pointTimestamps.put(point, ts++);
+            } else {
                 for (Triplet<Point,Double,Integer> triplet : triplets) {
                     updateVps(triplet, point, kNNs.get(point), kDistances.get(point), reachDistances, LRDs.get(point));
                 }
@@ -352,11 +324,6 @@ public class RLOF {
                 fullyDeleteRealPoints(new HashSet<Point>(Arrays.asList(point)));
                 assert(Tests.pointHasNotAffectedRlof(point, window, kNNs, kDistances, reachDistances, LRDs, LOFs, symDistances));
 
-                // since this point was never added to window (and hence never deleted)
-                // and it is assumed to be an outlier
-                // print its labeled result here
-                // you also want to add this point to labeled data
-                // temp:
                 //System.out.println(point.key + " " + labelPoint(point));
                 mapped.add(new KeyValue<String, Integer>(point.key, labelPoint(point)));
             }
