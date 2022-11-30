@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
 from typing import List
 import math
+from sklearn.metrics import PrecisionRecallDisplay
 
 def getLabels(file: str, d: int) -> List[int]:
     ans = []
@@ -45,6 +46,9 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
                 linewidth=linewidth,
                 ax=axs, # [i // cols, i % cols]
             )
+
+            # Might want to do Precision-Recall curve instead
+            # display = PrecisionRecallDisplay.from_predictions(y, y_pred, name=model_name) _ = display.ax_.set_title("Outlier Detection Precision-Recall Curve")
         axs.plot([0, 1], [0, 1], linewidth=linewidth, linestyle=":")
         axs.set_title(dataset)
         axs.set_xlabel("False Positive Rate")

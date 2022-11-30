@@ -44,7 +44,11 @@ public class VPoint extends Point {
 
     @Override
     public int hashCode() {
-        return this.center.hashCode() + this.hplane + this.position;
+        if (this.cached) return this.hashCode;
+        int hc = this.center.hashCode() + this.hplane + this.position;
+        this.cached = true;
+        this.hashCode = hc;
+        return hc;
     }
 
     @Override

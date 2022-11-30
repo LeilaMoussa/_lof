@@ -8,6 +8,8 @@ public class Point {
     public ArrayList<Double> attributes;
     public int dim;
     public String key; // kafka identifier
+    protected int hashCode;
+    protected boolean cached = false;
 
     protected Point() { }
 
@@ -102,11 +104,15 @@ public class Point {
 
     @Override
     public int hashCode() {
+      if (this.cached) return this.hashCode;
       String str = "";
       for (int i = 0; i < this.dim; i++) {
         str += this.getAttribute(i).toString();
       }
-      return str.hashCode();
+      int hc = str.hashCode();
+      this.cached = true;
+      this.hashCode = hc;
+      return hc;
     }
 
     @Override

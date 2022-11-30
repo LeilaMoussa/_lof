@@ -331,7 +331,7 @@ public class RLOF {
                 ageBasedDeletion();
             }
 
-            //System.out.println(totalPoints);
+            System.out.println(totalPoints);
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
                 long estimatedEndTime = System.nanoTime();
 

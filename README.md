@@ -11,17 +11,18 @@
 
 ## Immediate Todos
 
+- [ ] list all alg variations that i want to measure (note that i could do accuracy and speed separately)
+- [ ] get both roc and precision recall curves
+- [x] cache hashcodes
 - [x] fix problem with keys
-- [ ] double check printing of mapped in RLOF with smaller dataset
+- [x] double check printing of mapped in RLOF with smaller dataset
 - [x] add keys (ids) to labeled-mouse.txt
 - [x] fix comparator bug in RLOF
 - [ ] process expected labeled data sets
     - [x] (toy dataset: mouse)
     - [x] KDDCup99 10%
-    - [ ] pendigit?
-    - [ ] vowel?
-    - [ ] shuttle?
-    - [ ] settle on dataset with okay dimensionality
+    - [x] shuttle
+    - [ ] settle on or make dataset with okay dimensionality
 - [x] debug RLOF sink file
 - [x] generate ROC curve for ILOF (satisfactory, 90%)
 - [x] generate ROC curve for RLOF
@@ -30,7 +31,7 @@
     - [ ] with varying W
     - [ ] with varying MAX_AGE
     - [ ] with varying INLIER_PERCENTAGE
-- [ ] calculate execution times (remember to comment out / disable stuff like logging/printing/asserting)
+- [x] calculate execution times (remember to comment out / disable stuff like logging/printing/asserting)
     - [ ] ILOF
     - [ ] RLOF with flat index
     - [ ] RLOF with lsh
