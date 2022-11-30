@@ -40,6 +40,7 @@ public class Point {
             for (int i = 0; i < this.dim; i++) {
               distance += Math.pow(this.getAttribute(i) - other.getAttribute(i), 2);
             }
+            // TODO maybe remove sqrt to speed things up a tiny bit?
             double x = Math.sqrt(distance);
             // if (other.getClass().equals(VPoint.class)) {
             //   VPoint v = (VPoint)other;

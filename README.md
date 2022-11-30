@@ -22,7 +22,7 @@
     - [x] (toy dataset: mouse)
     - [x] KDDCup99 10%
     - [x] shuttle
-    - [ ] settle on or make dataset with okay dimensionality
+    - [x] wilt (d=5, hope it's better)
 - [x] debug RLOF sink file
 - [x] generate ROC curve for ILOF (satisfactory, 90%)
 - [x] generate ROC curve for RLOF
