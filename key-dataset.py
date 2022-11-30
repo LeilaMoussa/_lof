@@ -1,8 +1,8 @@
-# A very specific script that simply prepends a key (id) to each data point from mouse.
+# A very specific script that simply prepends a key (id) to each data point.
 def do():
-    with open('rtlofs/labeled-mouse.txt', 'r') as unkeyed:
+    with open('rtlofs/shuttle.labeled', 'r') as unkeyed:
         key = 1
-        with open('rtlofs/labeled.keyed.mouse', 'a') as keyed:
+        with open('rtlofs/labeled.keyed.shuttle', 'a') as keyed:
             while True:
                 line = unkeyed.readline()
                 if not line:
