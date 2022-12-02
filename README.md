@@ -11,32 +11,15 @@
 
 ## Immediate Todos
 
-- [ ] list all alg variations that i want to measure (note that i could do accuracy and speed separately)
+- [ ] vp getDistance with predefined distances
+- [ ] measure
+    - [ ] ilof flat
+    - [ ] ilof lsh
+    - [ ] rlof (always implies lsh + summarization + age deletion)
+        - vary lsh
+            - [ ] hashes=4, hashtables=4 (default)
+            - [ ] hashes=1, hashtables=1
+        - vary summarization
+            - [ ] W = 10%, W=25%, W=60%
+            - [ ] I=5%, I=10%, I=20%
 - [ ] get both roc and precision recall curves
-- [x] cache hashcodes
-- [x] fix problem with keys
-- [x] double check printing of mapped in RLOF with smaller dataset
-- [x] add keys (ids) to labeled-mouse.txt
-- [x] fix comparator bug in RLOF
-- [ ] process expected labeled data sets
-    - [x] (toy dataset: mouse)
-    - [x] KDDCup99 10%
-    - [x] shuttle
-    - [x] wilt (d=5, hope it's better)
-- [x] debug RLOF sink file
-- [x] generate ROC curve for ILOF (satisfactory, 90%)
-- [x] generate ROC curve for RLOF
-    - [ ] with varying index
-    - [ ] with varying k
-    - [ ] with varying W
-    - [ ] with varying MAX_AGE
-    - [ ] with varying INLIER_PERCENTAGE
-- [x] calculate execution times (remember to comment out / disable stuff like logging/printing/asserting)
-    - [ ] ILOF
-    - [ ] RLOF with flat index
-    - [ ] RLOF with lsh
-- [x] verify VP distances check out (they don't quite but needs further investigation)
-- [x] benchmark accuracy of TarsosLSH in a vacuum (done with random vectors)
-- [x] make producer.py read line by line
-- [x] modify roc.py to parse sink file format and use keys instead of attributes
-- [x] write as many "tests" (they're not really) as possible (WIP) -- write stuff to verify LSH!

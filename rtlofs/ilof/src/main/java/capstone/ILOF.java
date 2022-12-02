@@ -36,7 +36,6 @@ public class ILOF {
   // These collections should only be initialized and used when standalone ILOF is run.
   public static HashSet<Point> pointStore;
   public static HashMap<HashSet<Point>, Double> symDistances;
-  // TODO: I'm not using the pq logic anymore!
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
   public static HashMap<Point, Double> kDistances;
   public static HashMap<Pair<Point, Point>, Double> reachDistances;
@@ -415,13 +414,6 @@ public class ILOF {
       getRds(point);
       HashSet<Point> update_kdist = computeRkNNAndUpdateTheirkNNs(point);
       assert(Tests.noVirtualPointsAreToBeUpdated(update_kdist));
-      // for (Point to_update : update_kdist) {
-      //   // TODO: i could write updatekDist() that performs the update logic from querykNN()
-      //   // for slightly better performance => i should do this (i.e. push and pop logic)
-      //   // NOTE: that would only be useful for flatsearch
-      //   // UPDATE: after adding kdist in lsh, this should work there too
-      //   //getkNN(to_update, NNS_TECHNIQUE);
-      // }
       HashSet<Point> update_lrd = new HashSet<>(update_kdist);
       for (Point to_update : update_kdist) {
         for (Pair<Point, Double> n : kNNs.get(to_update)) {
@@ -433,8 +425,6 @@ public class ILOF {
           Double kdist;
           if (neigh.getClass().equals(VPoint.class)) {
             assert(Tests.isPositive(vpKdists.size()));
-            // TODO check this kdist, check that VPs returned from vectors are good
-            // check that VPoint equals is good and doesn't rely on hashcode, but probably modify hashcode to be sure
             kdist = vpKdists.get(((VPoint)neigh).center);
           } else {
             kdist = kDistances.get(neigh);
