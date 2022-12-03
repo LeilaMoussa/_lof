@@ -7,7 +7,7 @@ import time, sys
 # python3 producer.py kdd9910pc-source-topic rtlofs/sampled.labeled.keyed.kddcup._10_percent 0 41
 # python3 producer.py dummy-topic ../tiny-dummy.txt 0 2
 # python3 producer.py shuttle-topic rtlofs/labeled.keyed.shuttle 0 9
-# python3 producer.py wilt-topic rtlofs/labeled.keyed.wilt 1 5
+# python3 producer.py wilt-topic rtlofs/labeled.keyed.wilt 0 5
 if __name__ == '__main__':
     [_, topic_name, source_file, interval_sec, d] = sys.argv
     interval = float(interval_sec)
