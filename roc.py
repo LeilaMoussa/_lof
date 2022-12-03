@@ -6,16 +6,13 @@ import math
 from sklearn.metrics import PrecisionRecallDisplay
 from collections import defaultdict
 
-def getLabels(file: str, d: int) -> dict:
-    #ans = []
+def getLabels(file: str) -> dict:
     ans = defaultdict(int)
     with open(file, "r") as _in:
         data = _in.readlines()
-        data.sort() # to get same order based on ids
         for line in data:
             parts = line.strip().strip('\n').split()
-            ans[parts[0]] = parts[-1]
-            # ans.append(int(parts[-1]))  # append label
+            ans[parts[0]] = int(parts[-1])
     return ans
 
 def diff(ex: dict, act: dict):
@@ -28,7 +25,7 @@ def diff(ex: dict, act: dict):
     return expected, actual
 
 # copied from https://scikit-learn.org/stable/auto_examples/miscellaneous/plot_outlier_detection_bench.html then modified
-def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles_file: str, d: int):
+def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles_file: str):
 
     datasets_name = [
         dataset_name,
@@ -38,7 +35,6 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
         alg_name,
     ]
 
-    # plotting parameters
     cols = 1
     linewidth = 1
     pos_label = 1  # 1 means outlier
@@ -47,15 +43,12 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
     fig, axs = plt.subplots(rows, cols, figsize=(10, rows * 3))
 
     for i, dataset in enumerate(datasets_name):
-        y = getLabels(expected_profiles_file, d)
+        y = getLabels(expected_profiles_file)
 
         for model_name in models_name:
-            y_pred = getLabels(sink_file, d)
+            y_pred = getLabels(sink_file)
             expected, actual = diff(y, y_pred)
-            print("expected", expected)
-            print("------------")
-            print("actual", actual)
-            display = RocCurveDisplay.from_predictions(
+            RocCurveDisplay.from_predictions(
                 expected,
                 actual,
                 pos_label=pos_label,
@@ -64,8 +57,6 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
                 ax=axs, # [i // cols, i % cols]
             )
 
-            # Might want to do Precision-Recall curve instead
-            # display = PrecisionRecallDisplay.from_predictions(y, y_pred, name=model_name) _ = display.ax_.set_title("Outlier Detection Precision-Recall Curve")
         axs.plot([0, 1], [0, 1], linewidth=linewidth, linestyle=":")
         axs.set_title(dataset)
         axs.set_xlabel("False Positive Rate")
@@ -75,8 +66,6 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
 
 if __name__ == '__main__':
     # These files contain the data labeled as 0 (inlier) or 1 (outlier) with the same ids
-    # python roc.py ILOF mouse ilof.txt original.txt 2
-    # python roc.py RLOF mouse rlof.txt original.txt 2
-    # python roc.py RLOF ilof-mouse rlof.txt ilof.txt 2
-    [_, alg_name, dataset_name, sink_file, expected_profiles_file, dim] = sys.argv
-    plot_roc(alg_name, dataset_name, sink_file, expected_profiles_file, int(dim))
+    # python roc.py ilof-flat-k10 wilt actual.txt expected.txt
+    [_, alg_name, dataset_name, sink_file, expected_profiles_file] = sys.argv
+    plot_roc(alg_name, dataset_name, sink_file, expected_profiles_file)
