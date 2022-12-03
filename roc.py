@@ -1,9 +1,7 @@
 import sys
 import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
-from typing import List
 import math
-from sklearn.metrics import PrecisionRecallDisplay
 from collections import defaultdict
 
 def getLabels(file: str) -> dict:
@@ -66,6 +64,6 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
 
 if __name__ == '__main__':
     # These files contain the data labeled as 0 (inlier) or 1 (outlier) with the same ids
-    # python roc.py ilof-flat-k10 wilt actual.txt expected.txt
+    # python roc.py ilof-flat-k15 mouse actual.txt expected.txt
     [_, alg_name, dataset_name, sink_file, expected_profiles_file] = sys.argv
     plot_roc(alg_name, dataset_name, sink_file, expected_profiles_file)
