@@ -4,15 +4,28 @@ from sklearn.metrics import RocCurveDisplay
 from typing import List
 import math
 from sklearn.metrics import PrecisionRecallDisplay
+from collections import defaultdict
 
-def getLabels(file: str, d: int) -> List[int]:
-    ans = []
+def getLabels(file: str, d: int) -> dict:
+    #ans = []
+    ans = defaultdict(int)
     with open(file, "r") as _in:
         data = _in.readlines()
         data.sort() # to get same order based on ids
         for line in data:
-            ans.append(int(line.strip().strip('\n').split()[-1]))  # append label
+            parts = line.strip().strip('\n').split()
+            ans[parts[0]] = parts[-1]
+            # ans.append(int(parts[-1]))  # append label
     return ans
+
+def diff(ex: dict, act: dict):
+    expected = []
+    actual = []
+    for elt in ex.keys():
+        if elt in act:
+            expected.append(ex[elt])
+            actual.append(act[elt])
+    return expected, actual
 
 # copied from https://scikit-learn.org/stable/auto_examples/miscellaneous/plot_outlier_detection_bench.html then modified
 def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles_file: str, d: int):
@@ -38,9 +51,13 @@ def plot_roc(alg_name: str, dataset_name: str, sink_file: str, expected_profiles
 
         for model_name in models_name:
             y_pred = getLabels(sink_file, d)
+            expected, actual = diff(y, y_pred)
+            print("expected", expected)
+            print("------------")
+            print("actual", actual)
             display = RocCurveDisplay.from_predictions(
-                y,
-                y_pred,
+                expected,
+                actual,
                 pos_label=pos_label,
                 name=model_name,
                 linewidth=linewidth,
