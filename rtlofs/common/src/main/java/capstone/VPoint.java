@@ -36,6 +36,39 @@ public class VPoint extends Point {
     }
 
     @Override
+    public Double getDistanceTo(Point other, String distanceMeasure) {
+        try {
+            assert(other.getClass().equals(Point.class));
+            // pretend that other is oriented to be aligned with this group of vps
+            Double d = this.center.getDistanceTo(other, distanceMeasure);
+            if (this.hplane == 0) {
+                if (this.position == 0) {
+                    return d - R;
+                } else if (this.position == 1) {
+                    return d + R;
+                } else {
+                    System.out.println("There's been a problem setting vp position " + this.position);
+                }
+            } else {
+                switch(distanceMeasure) {
+                    case "EUCLIDEAN":
+                        // TODO if getting rid of sqrt, do it everywhere
+                        return Math.sqrt(
+                            Math.pow(d, 2) +
+                            Math.pow(R, 2)
+                        );
+                    case "MANHATTAN":
+                        return d + R;
+                    default: System.out.println("bad distance measure at vp getdistance");
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("vp getDistanceTo " + e + " " + e.getStackTrace()[0].getLineNumber());
+        }
+        return null;
+    }
+
+    @Override
     public boolean equals(Object other) {
       if (other == null || !(other.getClass().equals(VPoint.class))) return false;
       VPoint otherPoint = (VPoint)other;

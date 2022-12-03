@@ -433,6 +433,7 @@ public class ILOF {
           if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(to_update, neigh)))) {
             dist = symDistances.get(new HashSet<Point>(Arrays.asList(to_update, neigh)));
           } else {
+            // neigh could be vp
             dist = to_update.getDistanceTo(neigh, DISTANCE_MEASURE);
             symDistances.put(new HashSet<Point>(Arrays.asList(to_update, neigh)), dist);
           }

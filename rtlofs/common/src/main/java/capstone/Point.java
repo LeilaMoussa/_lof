@@ -34,6 +34,9 @@ public class Point {
 
     public Double getDistanceTo(Point other, String distanceMeasure) {
       try {
+        if (other.getClass().equals(VPoint.class)) {
+          return ((VPoint)other).getDistanceTo(this, distanceMeasure);
+        }
         double distance = 0;
         switch (distanceMeasure) {
           case "EUCLIDEAN":
@@ -41,14 +44,9 @@ public class Point {
               distance += Math.pow(this.getAttribute(i) - other.getAttribute(i), 2);
             }
             // TODO maybe remove sqrt to speed things up a tiny bit?
-            double x = Math.sqrt(distance);
-            // if (other.getClass().equals(VPoint.class)) {
-            //   VPoint v = (VPoint)other;
-            //   if (x != (v.dim + v.R) && x != (v.dim - v.R) && x != Math.sqrt(Math.pow(v.dim, 2) + Math.pow(v.R, 2))) {
-            //     System.out.println("unexpected distance to vp");
-            //   }
-            // }
-            return x;
+            // NOTE: if i do that, make sure to square predefined vp distances too
+            // also account for euclidean in vp distances: d+r, d-r, d+r for the rest
+            return Math.sqrt(distance);
           case "MANHATTAN":
             for (int i = 0; i < this.dim; i++) {
               distance += Math.abs(this.getAttribute(i) - other.getAttribute(i));
@@ -59,7 +57,7 @@ public class Point {
             return null;
         }
       } catch (Exception e) {
-        System.out.println("getDistanceTo " + e + " " + e.getStackTrace()[0].getLineNumber());
+        System.out.println("super getDistanceTo " + e + " " + e.getStackTrace()[0].getLineNumber());
       }
       return null;
     }

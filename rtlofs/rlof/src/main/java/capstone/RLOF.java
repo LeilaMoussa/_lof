@@ -241,9 +241,12 @@ public class RLOF {
                 }
                 HashSet<HashSet<Point>> dkeys = new HashSet<>();
                 for (Entry<HashSet<Point>, Double> entry : symDistances.entrySet()) {
-                    if (entry.getKey().contains(x)) {
-                        dkeys.add(entry.getKey());
-                    }
+                    // i've been storing the vps in symdistances, not their centers
+                    entry.getKey().forEach(elt -> {
+                        if (elt.getClass().equals(VPoint.class) && ((VPoint)elt).center.equals(x)) {
+                            dkeys.add(entry.getKey());
+                        }
+                    });
                 }
                 symDistances.keySet().removeAll(dkeys);
             }
