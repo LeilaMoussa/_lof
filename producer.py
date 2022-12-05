@@ -48,6 +48,7 @@ if __name__ == '__main__':
             print(count + 1, " - ", key, " - ", line)
             producer.send(topic_name, value=line.encode(), key=key.encode())
             count += 1
+            # if count == 4671: sys.exit()
             time.sleep(interval)
     print("in, out", _in, _out)
 
