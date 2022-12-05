@@ -1,3 +1,12 @@
+/**
+ * Pokrajac, D., Lazarevic, A., & Latecki, L. J. (2007, March). 
+ * Incremental local outlier detection for data streams. 
+ * In 2007 IEEE symposium on computational intelligence and data mining (pp. 504-515). 
+ * IEEE.
+ * 
+ * Author: Leila Moussa (l.moussa@aui.ma)
+ */
+
 package capstone;
 
 import org.apache.kafka.common.serialization.Serdes;
@@ -33,7 +42,8 @@ import be.tarsos.lsh.families.*;
 
 public class ILOF {
 
-  // These collections should only be initialized and used when standalone ILOF is run.
+  // IMPROVE: Conditionally initiliaze these collections depeending on
+  // whether ILOF is called from Driver or from another algorithm.
   public static HashSet<Point> pointStore;
   public static HashMap<HashSet<Point>, Double> symDistances;
   public static HashMap<Point, PriorityQueue<Pair<Point, Double>>> kNNs;
@@ -41,13 +51,10 @@ public class ILOF {
   public static HashMap<Pair<Point, Point>, Double> reachDistances;
   public static HashMap<Point, Double> LRDs;
   public static HashMap<Point, Double> LOFs;
-  // the following not allocated unless in RLOF
   public static HashSet<Triplet<Point, Double, Integer>> blackHoles;
   public static HashMap<Point, Double> vpKdists;
   public static HashMap<Point, Double> vpLrds;
 
-  // NOTE: not all these variables are relevant all the time.
-  // Conditional initialization? Eh...
   public static int k;
   public static int d;
   public static int TOP_N;
@@ -60,17 +67,16 @@ public class ILOF {
 
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
-
   public static long startTime;
 
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
     List<Vector> dataset = Sets.difference(pointStore, new HashSet<Point>(Arrays.asList(point))).stream().map(Point::toVector).collect(Collectors.toList());
-    // assert dataset doesn't contain point
+    // TODO: assert dataset doesn't contain point
     if (blackHoles != null && blackHoles.size() > 0) {
       dataset.addAll(deriveVirtualPoints().stream().map(Point::toVector).collect(Collectors.toList()));
     }
-    // assert all vectors with non null keys in dataset sum up to blackholes * 2 * d
+    // TODO: assert all vectors with non null keys in dataset sum up to blackholes * 2 * d
     switch (DISTANCE_MEASURE) {
       case "EUCLIDEAN":
         int radiusEuclidean = (int)Math.ceil(LSH.determineRadius(dataset, new EuclideanDistance(), 40));
@@ -78,28 +84,28 @@ public class ILOF {
         hashFamily = new EuclidianHashFamily(radiusEuclidean, d);
         break;
       case "MANHATTAN":
-        //int radiusCityBlock = (int) LSH.determineRadius(dataset, new CityBlockDistance(), 20);
         int radiusCityBlock = (int)Math.ceil(LSH.determineRadius(dataset, new CityBlockDistance(), 40));
         hashFamily = new CityBlockHashFamily(radiusCityBlock, d);
         break;
+      // IMPROVE: implement proper logging everywhere in this project + error log.
       default: System.out.println("Unsupported distance measure.");
     }
 
+    // Neighbors could be Points or VPoints.
     List<Point> neighbors = CommandLineInterface.lshSearch(dataset,
                             hashFamily,
                             HASHES,
                             HASHTABLES,
                             Arrays.asList(point.toVector()),
                             k)
-                            .get(0) // the first elt a list that's always guaranteed to be there but may be empty
+                            .get(0)
                             .stream()
-                            .map(Point::fromVector) // could be VPoint
+                            .map(Point::fromVector)
                             .collect(Collectors.toList());
 
-    // assert neighbors does not contain point
+    // TODO: assert neighbors does not contain point
 
-    // later: assert there are enough neighbors, maybe >= k-1 ?
-    // if totalPoints > 0, assert neighbors are more than 0
+    // IMPROVE: try to guarantee a minimum number of neighbors from Tarsos.
 
     PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
     for (Point n : neighbors) {
@@ -112,7 +118,7 @@ public class ILOF {
       }
       pq.add(new Pair<Point, Double>(n, dist));
     }
-    // assert pq is max heap
+    // TODO: assert pq is max heap
     kNNs.put(point, pq);
     kDistances.put(point, pq.size() == 0 ? Double.POSITIVE_INFINITY : pq.peek().getValue1());
   }
@@ -331,7 +337,7 @@ public class ILOF {
   }
 
   public static void main(String[] args) {
-    // TODO: better handling of defaults.
+    // IMPROVE: better handling of defaults.
     // NOTE: must run from working directory rtlofs.
     Dotenv dotenv = Dotenv.load();
 
@@ -362,7 +368,7 @@ public class ILOF {
     reachDistances = new HashMap<>();
     LRDs = new HashMap<>();
     LOFs = new HashMap<>();
-    // BUG if these values don't exist in .env, parseInt fails.
+    // BUG: if these values don't exist in .env, parseInt fails.
     k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
     TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
     DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
@@ -372,12 +378,12 @@ public class ILOF {
     d = Integer.parseInt(config.get("DIMENSIONS"));
     HASHES = Integer.parseInt(config.get("HASHES"));
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
-    // Along each axis, there are 2 virtual points at each end of the hypersphere bounding the blackhole.
+    // Along each axis, there are 2 virtual points at each end of the hypersphere bounding the blackhole
     V = 2 * d;
     SINK = Utils.buildSinkFilename(config, false);
   }
 
-  // this is a pretty nasty function signature
+  // IMPROVE: this is a pretty nasty function signature
   public static void ilofSubroutineForRlof(Point point,
                                           HashSet<Point> window,
                                           HashMap<HashSet<Point>, Double> rlofSymDistances,
@@ -390,9 +396,9 @@ public class ILOF {
                                           HashMap<Point, Double> rlofVpKdists,
                                           HashMap<Point, Double> rlofVpLrds,
                                           Dotenv config) {
-    // TODO: There's some overlap between RLOF.setup() and ILOF.setup()
+    // IMPROVE: There's some overlap between RLOF.setup() and ILOF.setup()
     setup(config);
-    // reminder to self: i did this to avoid circular dependency
+    // NOTE: cannot import collections from RLOF because otherwise, circular dependency
 
     pointStore = window;
     symDistances = rlofSymDistances;
@@ -433,7 +439,6 @@ public class ILOF {
           if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(to_update, neigh)))) {
             dist = symDistances.get(new HashSet<Point>(Arrays.asList(to_update, neigh)));
           } else {
-            // neigh could be vp
             dist = to_update.getDistanceTo(neigh, DISTANCE_MEASURE);
             symDistances.put(new HashSet<Point>(Arrays.asList(to_update, neigh)), dist);
           }
@@ -482,7 +487,6 @@ public class ILOF {
       if (totalPoints == 1) {
         startTime = System.nanoTime();
     }
-      //System.out.println("" + totalPoints);
       computeProfileAndMaintainWindow(point);
       ArrayList<KeyValue<String, Integer>> mapped = new ArrayList<>();
       if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
@@ -491,6 +495,8 @@ public class ILOF {
           topOutliers.add(new Pair<>(x, LOFs.get(x)));
         };
         for (Point x : pointStore) {
+          // IMPROVE: impl verbose mode everywhere
+          
           // System.out.println(x);
           // System.out.println(kNNs.get(x));
           // System.out.println(kDistances.get(x));
@@ -500,7 +506,7 @@ public class ILOF {
           // System.out.println(LRDs.get(x));
           // System.out.println(LOFs.get(x));
           // System.out.println("label " + labelPoint(x));
-          //System.out.println(x.key + " " + labelPoint(x));
+          // System.out.println(x.key + " " + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
         };
         System.out.println("Estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);
@@ -509,6 +515,7 @@ public class ILOF {
     })
     .print(Printed.toFile(SINK));
 
+    // IMPROVE: write to sink topic
     // final Serde<String> stringSerde = Serdes.String();
     // <some_stream>.toStream().to("some-topic", Produced.with(stringSerde, stringSerde));
 

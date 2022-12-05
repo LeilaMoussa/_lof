@@ -1,3 +1,15 @@
+/**
+ * RLOF: Score-guided Optimized Realtime Outlier Detection for Data Streams
+ * Omar Iraqi, Leila Moussa, Hanan El Bakkali
+ * School of Science and Engineering, Al Akhawayn University, Ifrane, Morocco
+ * Rabat-IT Center, ENSIAS, Mohammed V University, Rabat, Morocco
+ * Email: o.iraqi@aui.ma, l.moussa@aui.ma, hanan.elbakkali@um5.ac.ma
+ * 
+ * Citation subject to change.
+ * 
+ * Author: Leila Moussa (l.moussa@aui.ma)
+ */
+
 package capstone;
 
 import java.util.Arrays;
@@ -35,11 +47,10 @@ public class RLOF {
     // profiles of vps, where the keys are the blackhole centers
     public static HashMap<Point, Double> vpKdists;
     public static HashMap<Point, Double> vpLrds;
+    public static HashMap<Point, Long> vpTimestamps;
 
     public static long ts = 0L;
     public static HashMap<Point, Long> pointTimestamps;
-    // again, key is BH center
-    public static HashMap<Point, Long> vpTimestamps;
 
     public static int k;
     public static long W;
@@ -72,8 +83,8 @@ public class RLOF {
 
     public static void summarize() {
         try {
+            // TODO: make window a heap so you don't do this every time
             final int numberTopInliers = (int)(window.size() * INLIER_PERCENTAGE / 100);
-            // sort lofs asc
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
                                                             .orderedBy(PointComparator.comparator())
                                                             .maximumSize(numberTopInliers)
@@ -139,8 +150,12 @@ public class RLOF {
             int number = blackHole.getValue2();
             double newAvgKdist = (vpKdists.get(center) * number + kdistance) / (number + 1);
             double newAvgLrd = (vpLrds.get(center) * number + lrd) / (number + 1);
+
+            // TODO: revisit these 2 assumptions, as they did not quite work out the first time
+            // can this be proven?
             //assert(Tests.isAtMost(newAvgKdist, vpKdists.get(center)));
-            //assert(Tests.isAtLeast(newAvgLrd, vpLrds.get(center))); // perhaps these 2 assertions are wishful thinking?
+            //assert(Tests.isAtLeast(newAvgLrd, vpLrds.get(center)));
+
             vpKdists.put(center, newAvgKdist);
             vpLrds.put(center, newAvgLrd);
             // new_kdist is new radius
@@ -168,7 +183,6 @@ public class RLOF {
             });
             int before = window.size();
             fullyDeleteRealPoints(toDelete);
-            // now for the vps:
             toDelete.clear();
             vpTimestamps.entrySet().forEach(entry -> {
                 if (entry.getValue() > MAX_AGE) {
@@ -186,7 +200,6 @@ public class RLOF {
         try {
             window.removeAll(toDelete);
             for (Point x : toDelete) {
-                // you also want to add this point to labeled data
                 if (!(x.getClass().equals(VPoint.class))) {
                     //System.out.println(x.key + " " + labelPoint(x));
                     mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
@@ -241,7 +254,6 @@ public class RLOF {
                 }
                 HashSet<HashSet<Point>> dkeys = new HashSet<>();
                 for (Entry<HashSet<Point>, Double> entry : symDistances.entrySet()) {
-                    // i've been storing the vps in symdistances, not their centers
                     entry.getKey().forEach(elt -> {
                         if (elt.getClass().equals(VPoint.class) && ((VPoint)elt).center.equals(x)) {
                             dkeys.add(entry.getKey());
@@ -280,7 +292,7 @@ public class RLOF {
         SINK = Utils.buildSinkFilename(config, true);
     }
 
-    // TODO: copy paste, make util?
+    // TODO: make shared util
     public static int labelPoint(Point point) {
         return topOutliers.contains(new Pair<Point, Double>(point, LOFs.get(point))) ? 1 : 0;
       }
@@ -324,7 +336,7 @@ public class RLOF {
 
                 assert(Tests.pointHasNotAffectedRlof(point, window, kNNs, kDistances, reachDistances, LRDs, LOFs, symDistances));
 
-                //System.out.println(point.key + " " + labelPoint(point));
+                // System.out.println(point.key + " " + labelPoint(point));
                 mapped.add(new KeyValue<String, Integer>(point.key, labelPoint(point)));
             }
             if (window.size() >= W) {
@@ -334,18 +346,18 @@ public class RLOF {
                 ageBasedDeletion();
             }
 
-            //System.out.println(totalPoints);
+            // System.out.println(totalPoints);
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
                 long estimatedEndTime = System.nanoTime();
 
-                // TODO: quite a bit of copy paste here from ILOF
+                // IMPROVE: there's quite a bit of copy paste here from ILOF
                 for (Point x : window) {
                   topOutliers.add(new Pair<Point, Double>(x, LOFs.get(x)));
                 };
                 assert(Tests.isMaxHeap(topOutliers));
                 for (Point x : window) {
-                  //System.out.println(x + " " + LOFs.get(x));
-                  //System.out.println(x.key + " " + labelPoint(x));
+                  // System.out.println(x + " " + LOFs.get(x));
+                  // System.out.println(x.key + " " + labelPoint(x));
                   mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 }
                 System.out.println("estimated time elapsed ms " + (estimatedEndTime - startTime) / 1000000);

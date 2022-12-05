@@ -16,12 +16,7 @@ public class Driver {
 
     public static void main(String args[]) {
         // NOTE: Working directory must be rtlofs and .env must be in ./.env
-        Dotenv dotenv = Dotenv
-        // .configure()
-        // .directory("")
-        // .ignoreIfMalformed()
-        // .ignoreIfMissing()
-        .load();
+        Dotenv dotenv = Dotenv.load();
 
 
         Properties props = new Properties();
@@ -31,7 +26,7 @@ public class Driver {
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
         StreamsBuilder builder = new StreamsBuilder();
-        KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC")); // key: identifier, value: attributes
+        KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
 
         KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Utils.parse(value,
                                                                                     " ",
@@ -45,6 +40,7 @@ public class Driver {
             case "RLOF":
                 RLOF.process(data, dotenv);
                 break;
+            // TODO: implement as much of these as possible
             case "MILOF":
                 //
                 break;

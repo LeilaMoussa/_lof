@@ -5,8 +5,9 @@ import java.util.ArrayList;
 public class VPoint extends Point {
     private double R;
     public Point center;
-    private int hplane; // hyperplane
-    private int position; // left or right for example
+    // TODO: rename these fields
+    private int hplane; // hyperplane, really represents dimensions
+    private int position; // 0, 1, represents one of the 2 intersections between the axis and the hypersphere
     // key is null, as the only use of a key is to output labels, which VPs don't have
 
     public VPoint(Point center, ArrayList<Double> attributes) {
@@ -86,7 +87,6 @@ public class VPoint extends Point {
 
     @Override
     public String toString() {
-      //return "VP (" + this.center + ", " + this.hplane + " , " + this.position + ")";
       return "VP( " + this.attributes + " )";
     }
 }

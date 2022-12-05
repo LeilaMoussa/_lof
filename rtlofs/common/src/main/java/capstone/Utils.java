@@ -26,7 +26,8 @@ public class Utils {
     }
 
     public static String buildSinkFilename(Dotenv config, boolean summ) {
-        String name = "./sinks/"; // TODO this isn't working
+        // TODO this isn't working -- put sink file in sinks/
+        String name = "./sinks/";
         name += config.get("DATASET") + 
                     "-d" + config.get("DIMENSIONS") + 
                     "-" + config.get("ALGORITHM") + 

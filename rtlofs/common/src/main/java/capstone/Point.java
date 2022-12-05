@@ -43,9 +43,8 @@ public class Point {
             for (int i = 0; i < this.dim; i++) {
               distance += Math.pow(this.getAttribute(i) - other.getAttribute(i), 2);
             }
-            // TODO maybe remove sqrt to speed things up a tiny bit?
-            // NOTE: if i do that, make sure to square predefined vp distances too
-            // also account for euclidean in vp distances: d+r, d-r, d+r for the rest
+            // IMPROVE: maybe remove sqrt to speed things up a tiny bit
+            // if that is done, make sure to square predefined vp distances too
             return Math.sqrt(distance);
           case "MANHATTAN":
             for (int i = 0; i < this.dim; i++) {

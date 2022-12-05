@@ -124,6 +124,7 @@
     <module>ilof</module>
     <module>rlof</module>
     <module>clof</module>
+    <!-- Joren Six (joren@0110.be), TarsosLSH, Accessed from https://github.com/JorenSix/TarsosLSH -->
     <module>lsh</module>
   </modules>
 </project>
