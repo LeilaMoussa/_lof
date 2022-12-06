@@ -72,15 +72,14 @@ public class ILOF {
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
     List<Vector> dataset = Sets.difference(pointStore, new HashSet<Point>(Arrays.asList(point))).stream().map(Point::toVector).collect(Collectors.toList());
-    // TODO: assert dataset doesn't contain point
+    assert(Tests.pointNotInDataset(point, dataset));
     if (blackHoles != null && blackHoles.size() > 0) {
       dataset.addAll(deriveVirtualPoints().stream().map(Point::toVector).collect(Collectors.toList()));
     }
-    // TODO: assert all vectors with non null keys in dataset sum up to blackholes * 2 * d
+    assert(Tests.expectVirtualPointInDataset(dataset, blackHoles.size(), d));
     switch (DISTANCE_MEASURE) {
       case "EUCLIDEAN":
         int radiusEuclidean = (int)Math.ceil(LSH.determineRadius(dataset, new EuclideanDistance(), 40));
-        // assert if the dataset is non empty, the radius is positive, here and below
         hashFamily = new EuclidianHashFamily(radiusEuclidean, d);
         break;
       case "MANHATTAN":
@@ -103,7 +102,7 @@ public class ILOF {
                             .map(Point::fromVector)
                             .collect(Collectors.toList());
 
-    // TODO: assert neighbors does not contain point
+    assert(Tests.pointNotInNeighbors(point, neighbors));
 
     // IMPROVE: try to guarantee a minimum number of neighbors from Tarsos.
 
@@ -118,7 +117,7 @@ public class ILOF {
       }
       pq.add(new Pair<Point, Double>(n, dist));
     }
-    // TODO: assert pq is max heap
+    assert(Tests.isMaxHeap(pq));
     kNNs.put(point, pq);
     kDistances.put(point, pq.size() == 0 ? Double.POSITIVE_INFINITY : pq.peek().getValue1());
   }

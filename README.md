@@ -14,7 +14,7 @@
 ## Immediate Todos and Improvements
 - [ ] Implement LSH from scratch, no more TarsosLSH
 - [ ] Use KD Tree for kNN search in ILOF instead of flat index
-- [ ] Write more tests in the form of assertions
+- [x] Write more tests in the form of assertions
 - [ ] Automate benchmarking and evaluation
 - [ ] Add precision-recall in addition to ROC/AUC
 

@@ -1,12 +1,16 @@
 package capstone;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.PriorityQueue;
 
 import com.google.common.collect.MinMaxPriorityQueue;
+
+import be.tarsos.lsh.Vector;
 
 import org.javatuples.Pair;
 import org.javatuples.Triplet;
@@ -214,6 +218,31 @@ public class Tests {
             }
         }
         return true;
+    }
+
+    public static boolean pointNotInDataset(Point point, List<Vector> dataset) {
+        System.out.println("19");
+        Vector q = point.toVector();
+        for (Vector v : dataset) {
+            if (Arrays.equals(v.getValues(), q.getValues())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean expectVirtualPointInDataset(List<Vector> dataset, int bhs, int d) {
+        System.out.println("20");
+        int c = 0;
+        for (Vector v : dataset) {
+            if (v.virtual) c++;
+        }
+        return c == bhs * 2 * d;
+    }
+
+    public static boolean pointNotInNeighbors(Point point, List<Point> ns) {
+        System.out.println("21");
+        return !(ns.contains(point));
     }
 
 }
