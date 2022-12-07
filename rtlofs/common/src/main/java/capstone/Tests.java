@@ -221,6 +221,7 @@ public class Tests {
     }
 
     public static boolean pointNotInDataset(Point point, List<Vector> dataset) {
+        // TODO null exception happens somewhere here -- no time to check
         System.out.println("19");
         Vector q = point.toVector();
         for (Vector v : dataset) {

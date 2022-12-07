@@ -175,7 +175,8 @@ public class RLOF {
         try {
             HashSet<Point> toDelete = new HashSet<>();
             pointTimestamps.entrySet().forEach(entry -> {
-                if (entry.getValue() > MAX_AGE) {
+                long age = ts - entry.getValue();
+                if (age > MAX_AGE) {
                     // in case they're an old outlier:
                     topOutliers.add(new Pair<>(entry.getKey(), LOFs.get(entry.getKey())));
                     toDelete.add(entry.getKey());
