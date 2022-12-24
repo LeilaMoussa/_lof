@@ -91,7 +91,11 @@ public class ILOF {
       }
       // save hash: point in corresponding hashmap (this idx)
       // while at it, fill searchSpace with the existing points in that hashmap entry, before saving current point
-      searchSpace.addAll(hashTables.get(iter).get(hash));
+      if (hashTables.get(iter).containsKey(hash) == false) {
+        hashTables.get(iter).put(hash, new HashSet<>());
+      } else {
+        searchSpace.addAll(hashTables.get(iter).get(hash));
+      }
       hashTables.get(iter).get(hash).add(point);
     }
     return searchSpace;
@@ -113,7 +117,9 @@ public class ILOF {
     // might want to think about normalizing data
     if (hyperplanes == null) {
       hyperplanes = new ArrayList<>(HASHTABLES);
+      hashTables = new ArrayList<>(HASHTABLES);
       for (int i = 0; i < HASHTABLES; i++) {
+        hashTables.add(new HashMap<>());
         ArrayList<ArrayList<Double>> iteration = new ArrayList<>(HYPERPLANES);
         for (int j = 0; j < HYPERPLANES; j++) {
           ArrayList<Double> norm = new ArrayList<>(d);
@@ -128,8 +134,10 @@ public class ILOF {
       }
     }
 
-    ArrayList<VPoint> vps = deriveVirtualPoints();
-    vps.forEach(x -> hashAndSave(x));
+    if (blackHoles != null && blackHoles.size() > 0) {
+      ArrayList<VPoint> vps = deriveVirtualPoints();
+      vps.forEach(x -> hashAndSave(x));
+    }
 
     HashSet<Point> searchSpace = hashAndSave(point);
 

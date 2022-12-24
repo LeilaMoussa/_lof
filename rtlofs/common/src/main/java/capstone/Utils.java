@@ -33,8 +33,11 @@ public class Utils {
                     "-k" + config.get("k") + 
                     "-" + config.get("DISTANCE_MEASURE").substring(0, 3) + 
                     "-" + config.get("ANNS");
-        if (config.get("ANNS").equals("LSH")) {
+        if (config.get("ANNS").equals("TARSOS")) {
             name += "-h" + config.get("HASHES") + 
+                    "-t" + config.get("HASHTABLES");
+        } else if (config.get("ANNS").equals("LSH")) {
+            name += "-p" + config.get("HYPERPLANES") + 
                     "-t" + config.get("HASHTABLES");
         }
         if (summ) {
