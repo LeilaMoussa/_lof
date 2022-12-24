@@ -170,7 +170,7 @@ def diff(ex: dict, act: dict):
 # ]
 
 x = [
-    "rtlofs/newsinks/wilt-d5-rlof-k7-euc-lsh-h2-t2-w840-i25-a1400-383720ms"
+    "rtlofs/newsinks/immunizer-d8-rlof-k7-euc-lsh-h2-t2-w918-i25-a1530-645108ms"
 ]
 
 expected_labels_file = "rtlofs/datasets/labeled.keyed.wilt"

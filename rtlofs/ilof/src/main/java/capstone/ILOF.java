@@ -62,12 +62,81 @@ public class ILOF {
   public static String NNS_TECHNIQUE;
   public static int HASHES;
   public static int HASHTABLES;
+  public static int HYPERPLANES;
   public static int V;
   public static String SINK;
 
   public static MinMaxPriorityQueue<Pair<Point, Double>> topOutliers;
   public static long totalPoints;
   public static long startTime;
+
+  public static ArrayList<ArrayList<ArrayList<Double>>> hyperplanes; // R sets of H hyperplanes, each expressed as a d-dimensional vector
+  public static ArrayList<HashMap<Long, HashSet<Point>>> hashTables; // R tables, with key being binary hash and value being set of points sharing that hash in that iteration
+
+  public static HashSet<Point> hashAndSave(Point point) {
+    HashSet<Point> searchSpace = new HashSet<>();
+    for (int iter = 0; iter < hyperplanes.size(); iter++) {
+      ArrayList<ArrayList<Double>> iteration = hyperplanes.get(iter);
+      // treat hash as a binary number
+      long hash = 0b0;
+      for (ArrayList<Double> hyperplane: iteration) {
+        double dot = 0;
+        for (int i = 0; i < d; i++) {
+          dot += point.getAttribute(i) * hyperplane.get(i);
+        }
+        //int bit = dot <= 0 ? 0 : 1;
+        // left shift hash and set the lsb if bit is 1 (might not need bit at all, just check sign of dot)
+        hash = hash << 1;
+        if (dot > 0) hash |= 1;
+      }
+      // save hash: point in corresponding hashmap (this idx)
+      // while at it, fill searchSpace with the existing points in that hashmap entry, before saving current point
+      searchSpace.addAll(hashTables.get(iter).get(hash));
+      hashTables.get(iter).get(hash).add(point);
+    }
+    return searchSpace;
+  }
+
+  public static void getLshkNN(Point point) {
+    // statically generate R sets of H hyperplanes
+    // for each new point, get its dot products with the hyperplanes, then its hash
+    // statically keep R hashtables, each with H-bit hashes
+    // end up with R buckets that the new point belongs to
+    // the search space is all the other points in all these buckets
+    // hamming? or whatever distance measure?
+    // if hamming: for each table, compare point's hash with all other hashes in that table => all buckets
+    // if using distance measure: just stick to R buckets and go back to vectors
+    // i think i'll just do the latter for now
+
+    // each hyperplane is defined by a normal vector of d dimensions
+    // generate H vectors of d dimensions, where each element is in range 0,1, then subtract .5 to center around 0
+    // might want to think about normalizing data
+    if (hyperplanes == null) {
+      hyperplanes = new ArrayList<>(HASHTABLES);
+      for (int i = 0; i < HASHTABLES; i++) {
+        ArrayList<ArrayList<Double>> iteration = new ArrayList<>(HYPERPLANES);
+        for (int j = 0; j < HYPERPLANES; j++) {
+          ArrayList<Double> norm = new ArrayList<>(d);
+          for (int m = 0; m < d; m++) {
+            norm.add(
+              Math.random() - 0.5
+            );
+          }
+          iteration.add(norm);
+        }
+        hyperplanes.add(iteration);
+      }
+    }
+
+    ArrayList<VPoint> vps = deriveVirtualPoints();
+    vps.forEach(x -> hashAndSave(x));
+
+    HashSet<Point> searchSpace = hashAndSave(point);
+
+    // here, should have avg of R * N / 2** H points in searchSpace where N = number of Points and VPoints in window
+    // for each, get distance with distance measure, then do similar logic as in getFlatkNN
+    kNNs.put(point, getFlatkNNFromSearchSpace(point, searchSpace));
+  }
 
   public static void getTarsosLshkNN(Point point) {
     HashFamily hashFamily = null;
@@ -139,10 +208,11 @@ public class ILOF {
     return ans;
   }
 
-  public static void getFlatkNN(Point point) {
+  // almost fully copy paste from getFlatkNN, might want to refactor and keep only one
+  public static PriorityQueue<Pair<Point, Double>> getFlatkNNFromSearchSpace(Point point, HashSet<Point> searchSpace) {  // searchSpace is candidate Points and VPoints
     try {
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
-      pointStore.forEach(otherPoint -> {
+      searchSpace.forEach(otherPoint -> {  // otherPoint may be Point or VPoint
         if (otherPoint.equals(point)) return;
         Double dist;
         if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, otherPoint)))) {
@@ -153,19 +223,68 @@ public class ILOF {
         }
         distances.add(new Pair<Point, Double>(otherPoint, dist));
       });
-      if (blackHoles != null && blackHoles.size() > 0) {
-        ArrayList<VPoint> vps = deriveVirtualPoints();
-        vps.forEach(vp -> {
-          Double dist;
-          if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, vp)))) {
-            dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, vp)));
-          } else {
-            dist = point.getDistanceTo(vp, DISTANCE_MEASURE);
-            symDistances.put(new HashSet<Point>(Arrays.asList(point, vp)), dist);
-          }
-          distances.add(new Pair<Point, Double>(vp, dist));
-        });
+      assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
+      distances.sort(PointComparator.comparator());
+      if (distances.size() >= 2) {
+        assert(Tests.isSortedAscending(distances));
       }
+      Double kdist = 0.0;
+      if (distances.size() > 0) {
+        kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1();
+      }
+      // TODO do this in calling func
+      kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
+      int i = k;
+      for (; i < distances.size() && distances.get(i).getValue1().equals(kdist); i++) { }
+      PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
+      if (distances.size() > 0) {
+        pq.addAll(distances.subList(0, Math.min(i, distances.size())));
+      }
+      assert(Tests.isMaxHeap(new PriorityQueue<Pair<Point, Double>>(pq)));
+      if (totalPoints > k) {
+        assert(Tests.atLeastKNeighbors(kNNs.get(point), k));
+      }
+      return pq;
+    } catch (Exception e) {
+      System.out.println("getFlatkNNFromSearchSpace " + e + " " + e.getStackTrace()[0].getLineNumber());
+    }
+    return null;
+  }
+
+  public static void getFlatkNN(Point point) {
+    try {
+      // TODO make a single VP account for N/V neighbors, somehow
+      ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
+      ArrayList<VPoint> vps = null;
+      if (blackHoles != null && blackHoles.size() > 0) {
+        vps = deriveVirtualPoints();
+      }
+      HashSet<Point> searchSpace = new HashSet<>(pointStore);
+      searchSpace.addAll(vps);
+      searchSpace.forEach(otherPoint -> {  // otherPoint may be Point or VPoint
+        if (otherPoint.equals(point)) return;
+        Double dist;
+        if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, otherPoint)))) {
+          dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, otherPoint)));
+        } else {
+          dist = point.getDistanceTo(otherPoint, DISTANCE_MEASURE);
+          symDistances.put(new HashSet<Point>(Arrays.asList(point, otherPoint)), dist);
+        }
+        distances.add(new Pair<Point, Double>(otherPoint, dist));
+      });
+      // if (blackHoles != null && blackHoles.size() > 0) {
+      //   ArrayList<VPoint> vps = deriveVirtualPoints();
+      //   vps.forEach(vp -> {
+      //     Double dist;
+      //     if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, vp)))) {
+      //       dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, vp)));
+      //     } else {
+      //       dist = point.getDistanceTo(vp, DISTANCE_MEASURE);
+      //       symDistances.put(new HashSet<Point>(Arrays.asList(point, vp)), dist);
+      //     }
+      //     distances.add(new Pair<Point, Double>(vp, dist));
+      //   });
+      // }
       assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
       distances.sort(PointComparator.comparator());
       if (distances.size() >= 2) {
@@ -377,6 +496,7 @@ public class ILOF {
     d = Integer.parseInt(config.get("DIMENSIONS"));
     HASHES = Integer.parseInt(config.get("HASHES"));
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
+    HYPERPLANES = Integer.parseInt(config.get("HASHTABLES"));
     // Along each axis, there are 2 virtual points at each end of the hypersphere bounding the blackhole
     V = 2 * d;
     SINK = Utils.buildSinkFilename(config, false);
