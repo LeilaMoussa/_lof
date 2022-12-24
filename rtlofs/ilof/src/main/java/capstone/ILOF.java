@@ -255,12 +255,10 @@ public class ILOF {
     try {
       // TODO make a single VP account for N/V neighbors, somehow
       ArrayList<Pair<Point, Double>> distances = new ArrayList<>();
-      ArrayList<VPoint> vps = null;
-      if (blackHoles != null && blackHoles.size() > 0) {
-        vps = deriveVirtualPoints();
-      }
       HashSet<Point> searchSpace = new HashSet<>(pointStore);
-      searchSpace.addAll(vps);
+      if (blackHoles != null && blackHoles.size() > 0) {
+        searchSpace.addAll(deriveVirtualPoints());
+      }
       searchSpace.forEach(otherPoint -> {  // otherPoint may be Point or VPoint
         if (otherPoint.equals(point)) return;
         Double dist;
@@ -272,19 +270,6 @@ public class ILOF {
         }
         distances.add(new Pair<Point, Double>(otherPoint, dist));
       });
-      // if (blackHoles != null && blackHoles.size() > 0) {
-      //   ArrayList<VPoint> vps = deriveVirtualPoints();
-      //   vps.forEach(vp -> {
-      //     Double dist;
-      //     if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, vp)))) {
-      //       dist = symDistances.get(new HashSet<Point>(Arrays.asList(point, vp)));
-      //     } else {
-      //       dist = point.getDistanceTo(vp, DISTANCE_MEASURE);
-      //       symDistances.put(new HashSet<Point>(Arrays.asList(point, vp)), dist);
-      //     }
-      //     distances.add(new Pair<Point, Double>(vp, dist));
-      //   });
-      // }
       assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
       distances.sort(PointComparator.comparator());
       if (distances.size() >= 2) {
@@ -314,7 +299,8 @@ public class ILOF {
   public static void getkNN(Point point, String NNS_TECHNIQUE) {
     switch (NNS_TECHNIQUE) {
       case "FLAT": getFlatkNN(point); return;
-      case "LSH": getTarsosLshkNN(point); return;
+      case "LSH": getLshkNN(point); return;
+      case "TARSOS": getTarsosLshkNN(point); return;
       default: System.out.println("Unsupported nearest neighbor search technique.");
     }
   }
@@ -616,14 +602,14 @@ public class ILOF {
         for (Point x : pointStore) {
           // IMPROVE: impl verbose mode everywhere
           
-          // System.out.println(x);
+          System.out.println(x);
           // System.out.println(kNNs.get(x));
           // System.out.println(kDistances.get(x));
           // for (Pair<Point,Double> p : kNNs.get(x)) {
           //   System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
           // }
           // System.out.println(LRDs.get(x));
-          // System.out.println(LOFs.get(x));
+          System.out.println(LOFs.get(x));
           // System.out.println("label " + labelPoint(x));
           // System.out.println(x.key + " " + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
