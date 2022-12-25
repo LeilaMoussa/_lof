@@ -10,6 +10,7 @@ public class Point {
     public String key; // kafka identifier
     protected int hashCode;
     protected boolean cached = false;
+    public boolean lshHashed = false;
 
     protected Point() { }
 

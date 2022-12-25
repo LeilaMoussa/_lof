@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -75,7 +76,7 @@ public class ILOF {
 
   public static HashSet<Point> hashAndSave(Point point) {
     HashSet<Point> searchSpace = new HashSet<>();
-    for (int iter = 0; iter < hyperplanes.size(); iter++) {
+    for (int iter = 0; iter < HASHTABLES; iter++) {
       ArrayList<ArrayList<Double>> iteration = hyperplanes.get(iter);
       // treat hash as a binary number
       long hash = 0b0;
@@ -96,7 +97,15 @@ public class ILOF {
       } else {
         searchSpace.addAll(hashTables.get(iter).get(hash));
       }
-      hashTables.get(iter).get(hash).add(point);
+      if (!(point.lshHashed)) {
+        hashTables.get(iter).get(hash).add(point);
+        if (iter == HASHTABLES - 1) {
+          // Only save R hashes per point (although i'm recomputing the hashes everytime this function executes)
+          // I'm assuming this shouldn't be an expensive function, but if it is, i'll make an inverse hashmap of point to hash(es)
+          // and end up only computing R * N hashes
+          point.lshHashed = true;
+        }
+      }
     }
     return searchSpace;
   }
@@ -143,6 +152,13 @@ public class ILOF {
 
     // here, should have avg of R * N / 2** H points in searchSpace where N = number of Points and VPoints in window
     // for each, get distance with distance measure, then do similar logic as in getFlatkNN
+
+    // BUG: when point always falls in an empty bucket, knn empty, kdist inf, rd inf, lof nan, and messes up other points
+    // how to handle single point per bucket?
+    // perhaps, in that case, do the hamming distance stuff:
+    // for each table, compare point's hash with all other hashes, and pick top k closest hashes
+    // this gives k buckets, combined into a single set of candidates, of which just pick any k (since sets are unordered, just pick first k of the set)
+    // for slightly better accuracy, take entire bucket incrementally: get closest bucket, if less than k, move on to second closest bucket, and stop when i reach more than k (it's okay to exceed k within the same bucket)
     kNNs.put(point, getFlatkNNFromSearchSpace(point, searchSpace));
   }
 
@@ -216,6 +232,7 @@ public class ILOF {
     return ans;
   }
 
+  // TODO why not just make this function put kNN? why am i returning it?
   // almost fully copy paste from getFlatkNN, might want to refactor and keep only one
   public static PriorityQueue<Pair<Point, Double>> getFlatkNNFromSearchSpace(Point point, HashSet<Point> searchSpace) {  // searchSpace is candidate Points and VPoints
     try {
@@ -240,7 +257,6 @@ public class ILOF {
       if (distances.size() > 0) {
         kdist = distances.get(Math.min(k-1, distances.size()-1)).getValue1();
       }
-      // TODO do this in calling func
       kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
       int i = k;
       for (; i < distances.size() && distances.get(i).getValue1().equals(kdist); i++) { }
@@ -490,7 +506,7 @@ public class ILOF {
     d = Integer.parseInt(config.get("DIMENSIONS"));
     HASHES = Integer.parseInt(config.get("HASHES"));
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
-    HYPERPLANES = Integer.parseInt(config.get("HASHTABLES"));
+    HYPERPLANES = Integer.parseInt(config.get("HYPERPLANES"));
     // Along each axis, there are 2 virtual points at each end of the hypersphere bounding the blackhole
     V = 2 * d;
     SINK = Utils.buildSinkFilename(config, false);
@@ -525,6 +541,17 @@ public class ILOF {
     vpLrds = rlofVpLrds;
 
     computeProfileAndMaintainWindow(point);
+  }
+
+  public static void printTables() {
+    System.out.println("start tables");
+    for (HashMap<Long,HashSet<Point>> table : hashTables) {
+      for (Entry<Long,HashSet<Point>> e : table.entrySet()) {
+        System.out.println(e.getKey() + " : " + e.getValue());
+      }
+      System.out.println("--------");
+    }
+    System.out.println("end tables");
   }
 
   public static void computeProfileAndMaintainWindow(Point point) {
@@ -585,6 +612,8 @@ public class ILOF {
         getLof(to_update);
       }
       getLof(point);
+
+      printTables();
     } catch (Exception e) {
       System.out.println("computeProfileAndMaintainWindow " + e);
       e.printStackTrace();
@@ -611,12 +640,12 @@ public class ILOF {
           // IMPROVE: impl verbose mode everywhere
           
           System.out.println(x);
-          // System.out.println(kNNs.get(x));
-          // System.out.println(kDistances.get(x));
-          // for (Pair<Point,Double> p : kNNs.get(x)) {
-          //   System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
-          // }
-          // System.out.println(LRDs.get(x));
+          System.out.println(kNNs.get(x));
+          System.out.println(kDistances.get(x));
+          for (Pair<Point,Double> p : kNNs.get(x)) {
+            System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
+          }
+          System.out.println("\n" + LRDs.get(x));
           System.out.println(LOFs.get(x));
           // System.out.println("label " + labelPoint(x));
           // System.out.println(x.key + " " + labelPoint(x));
