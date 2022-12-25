@@ -86,7 +86,7 @@ public class RLOF {
             // TODO: make window a heap so you don't do this every time
             final int numberTopInliers = (int)(window.size() * INLIER_PERCENTAGE / 100);
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
-                                                            .orderedBy(PointComparator.comparator())
+                                                            .orderedBy(Comparators.pointComparator())
                                                             .maximumSize(numberTopInliers)
                                                             .create();
             for (Point point : window) {
@@ -288,7 +288,7 @@ public class RLOF {
         DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
         INLIER_PERCENTAGE = Integer.parseInt(config.get("INLIER_PERCENTAGE"));
         TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
-        topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
+        topOutliers = MinMaxPriorityQueue.orderedBy(Comparators.pointComparator().reversed()).maximumSize(TOP_N).create();
         mapped = new HashSet<>();
         SINK = Utils.buildSinkFilename(config, true);
     }

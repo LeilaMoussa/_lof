@@ -73,7 +73,7 @@ public class Tests {
 
     public static boolean isMaxHeap(PriorityQueue<Pair<Point, Double>> pq) {
         System.out.println("5");
-        PriorityQueue<Pair<Point, Double>> copy = new PriorityQueue<>(PointComparator.comparator().reversed());
+        PriorityQueue<Pair<Point, Double>> copy = new PriorityQueue<>(Comparators.pointComparator().reversed());
         copy.addAll(pq);
         if (pq.size() == 0) return true;
         double assumed_max = copy.poll().getValue1();
@@ -86,7 +86,7 @@ public class Tests {
     public static boolean isMaxHeap(MinMaxPriorityQueue<Pair<Point, Double>> pq) {
         System.out.println("6");
         MinMaxPriorityQueue<Pair<Point, Double>> copy = MinMaxPriorityQueue
-                                                        .orderedBy(PointComparator.comparator().reversed())
+                                                        .orderedBy(Comparators.pointComparator().reversed())
                                                         .maximumSize(pq.size())
                                                         .create();
         copy.addAll(pq);
@@ -101,7 +101,7 @@ public class Tests {
     public static boolean isMinHeap(MinMaxPriorityQueue<Pair<Point, Double>> pq) {
         System.out.println("7");
         MinMaxPriorityQueue<Pair<Point, Double>> copy = MinMaxPriorityQueue
-                                                        .orderedBy(PointComparator.comparator())
+                                                        .orderedBy(Comparators.pointComparator())
                                                         .maximumSize(pq.size())
                                                         .create();
         copy.addAll(pq);

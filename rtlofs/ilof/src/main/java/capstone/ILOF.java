@@ -73,8 +73,24 @@ public class ILOF {
 
   public static ArrayList<ArrayList<ArrayList<Double>>> hyperplanes; // R sets of H hyperplanes, each expressed as a d-dimensional vector
   public static ArrayList<HashMap<Long, HashSet<Point>>> hashTables; // R tables, with key being binary hash and value being set of points sharing that hash in that iteration
+  public static HashMap<Point, ArrayList<Long>> hashes;
+
+  // IMPROVE: may want to change visibility of some things to private, etc.
+  public static int hammingDistance(long hasha, long hashb) {
+    // the number of ones in hasha XOR hashb is the hamming distance
+    long xor = hasha ^ hashb;
+    int ans = 0;
+    while (xor > 0) {
+        if (xor % 2 == 1) ans++;
+        xor = xor >> 1;
+    }
+    return ans;
+  }
 
   public static HashSet<Point> hashAndSave(Point point) {
+    if (hashes.containsKey(point) == false) {
+      hashes.put(point, new ArrayList<Long>(HASHTABLES));
+    }
     HashSet<Point> searchSpace = new HashSet<>();
     for (int iter = 0; iter < HASHTABLES; iter++) {
       ArrayList<ArrayList<Double>> iteration = hyperplanes.get(iter);
@@ -97,8 +113,9 @@ public class ILOF {
       } else {
         searchSpace.addAll(hashTables.get(iter).get(hash));
       }
-      if (!(point.lshHashed)) {
+      if (!(point.lshHashed)) { // hashes.get(point).size() < HASHTABLES
         hashTables.get(iter).get(hash).add(point);
+        hashes.get(point).add(hash);
         if (iter == HASHTABLES - 1) {
           // Only save R hashes per point (although i'm recomputing the hashes everytime this function executes)
           // I'm assuming this shouldn't be an expensive function, but if it is, i'll make an inverse hashmap of point to hash(es)
@@ -141,6 +158,7 @@ public class ILOF {
         }
         hyperplanes.add(iteration);
       }
+      hashes = new HashMap<>();
     }
 
     if (blackHoles != null && blackHoles.size() > 0) {
@@ -156,9 +174,26 @@ public class ILOF {
     // BUG: when point always falls in an empty bucket, knn empty, kdist inf, rd inf, lof nan, and messes up other points
     // how to handle single point per bucket?
     // perhaps, in that case, do the hamming distance stuff:
-    // for each table, compare point's hash with all other hashes, and pick top k closest hashes
+    // for each table, compare point's hash with all other hashes, and pick top k closest hashes across all tables
     // this gives k buckets, combined into a single set of candidates, of which just pick any k (since sets are unordered, just pick first k of the set)
     // for slightly better accuracy, take entire bucket incrementally: get closest bucket, if less than k, move on to second closest bucket, and stop when i reach more than k (it's okay to exceed k within the same bucket)
+
+    // need first to retrieve point's hash for each table
+    // maybe i do need that inverse hashmap
+
+    if (searchSpace.isEmpty()) {
+      for (int i = 0; i < HASHTABLES; i++) {
+        long hash = hashes.get(point).get(i);
+        HashSet<Long> otherHashes = new HashSet<>(hashTables.get(i).keySet());
+        PriorityQueue<Pair<Long, Integer>> sortedHashesByHamming = new PriorityQueue<>(Comparators.hashComparator().reversed());
+        otherHashes.forEach(otherHash -> {
+          sortedHashesByHamming.add(new Pair<Long, Integer>(otherHash, hammingDistance(hash, otherHash)));
+        });
+        // now all other hashes in that table are sorted in a min heap
+        // keep polling and check size so far against k
+      }
+    }
+
     kNNs.put(point, getFlatkNNFromSearchSpace(point, searchSpace));
   }
 
@@ -199,7 +234,7 @@ public class ILOF {
 
     // IMPROVE: try to guarantee a minimum number of neighbors from Tarsos.
 
-    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
+    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(Comparators.pointComparator().reversed());
     for (Point n : neighbors) {
       Double dist;
       if (symDistances.containsKey(new HashSet<Point>(Arrays.asList(point, n)))) {
@@ -249,7 +284,7 @@ public class ILOF {
         distances.add(new Pair<Point, Double>(otherPoint, dist));
       });
       assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
-      distances.sort(PointComparator.comparator());
+      distances.sort(Comparators.pointComparator());
       if (distances.size() >= 2) {
         assert(Tests.isSortedAscending(distances));
       }
@@ -260,7 +295,7 @@ public class ILOF {
       kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
       int i = k;
       for (; i < distances.size() && distances.get(i).getValue1().equals(kdist); i++) { }
-      PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
+      PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(Comparators.pointComparator().reversed());
       if (distances.size() > 0) {
         pq.addAll(distances.subList(0, Math.min(i, distances.size())));
       }
@@ -295,7 +330,7 @@ public class ILOF {
         distances.add(new Pair<Point, Double>(otherPoint, dist));
       });
       assert(Tests.isEq(distances.size(), pointStore.size() - 1  + (blackHoles != null ? blackHoles.size() * 2 * d : 0)));
-      distances.sort(PointComparator.comparator());
+      distances.sort(Comparators.pointComparator());
       if (distances.size() >= 2) {
         assert(Tests.isSortedAscending(distances));
       }
@@ -306,7 +341,7 @@ public class ILOF {
       kDistances.put(point, kdist == 0 ? Double.POSITIVE_INFINITY : kdist);
       int i = k;
       for (; i < distances.size() && distances.get(i).getValue1().equals(kdist); i++) { }
-      PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(PointComparator.comparator().reversed());
+      PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(Comparators.pointComparator().reversed());
       if (distances.size() > 0) {
         pq.addAll(distances.subList(0, Math.min(i, distances.size())));
       }
@@ -500,7 +535,7 @@ public class ILOF {
     k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
     TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
     DISTANCE_MEASURE = config.get("DISTANCE_MEASURE");
-    topOutliers = MinMaxPriorityQueue.orderedBy(PointComparator.comparator().reversed()).maximumSize(TOP_N).create();
+    topOutliers = MinMaxPriorityQueue.orderedBy(Comparators.pointComparator().reversed()).maximumSize(TOP_N).create();
     totalPoints = 0;
     NNS_TECHNIQUE = config.get("ANNS");
     d = Integer.parseInt(config.get("DIMENSIONS"));
