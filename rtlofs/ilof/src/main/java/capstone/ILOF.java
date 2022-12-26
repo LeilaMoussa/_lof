@@ -181,18 +181,26 @@ public class ILOF {
     // need first to retrieve point's hash for each table
     // maybe i do need that inverse hashmap
 
-    if (searchSpace.isEmpty()) {
+    if (searchSpace.isEmpty() && pointStore.size() > 1) {
+      System.out.println("search space empty");
       for (int i = 0; i < HASHTABLES; i++) {
         long hash = hashes.get(point).get(i);
-        HashSet<Long> otherHashes = new HashSet<>(hashTables.get(i).keySet());
+        HashMap<Long, HashSet<Point>> currentTable = hashTables.get(i);
+        HashSet<Long> otherHashes = new HashSet<>(currentTable.keySet());
         PriorityQueue<Pair<Long, Integer>> sortedHashesByHamming = new PriorityQueue<>(Comparators.hashComparator().reversed());
         otherHashes.forEach(otherHash -> {
           sortedHashesByHamming.add(new Pair<Long, Integer>(otherHash, hammingDistance(hash, otherHash)));
         });
         // now all other hashes in that table are sorted in a min heap
         // keep polling and check size so far against k
+        while (sortedHashesByHamming.size() > 0 && searchSpace.size() < k) {
+          long nextClosestHash = sortedHashesByHamming.poll().getValue0();
+          searchSpace.addAll(currentTable.get(nextClosestHash));
+        }
       }
     }
+
+    // assert searchspace is not empty
 
     kNNs.put(point, getFlatkNNFromSearchSpace(point, searchSpace));
   }
