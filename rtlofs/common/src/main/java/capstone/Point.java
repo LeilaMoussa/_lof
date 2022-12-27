@@ -10,8 +10,6 @@ public class Point {
     public String key; // kafka identifier
     protected int hashCode;
     protected boolean cached = false;
-    // TODO remove this, it's not object oriented enough (not related to the concept of a point and only sometimes relevant)
-    public boolean lshHashed = false;
 
     protected Point() { }
 

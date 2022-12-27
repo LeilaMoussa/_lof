@@ -78,6 +78,26 @@ public class ILOF {
 
   public static KDTree kdindex;
 
+  public static void getKDkNN(Point point) {
+    double[] attributes = new double[d];
+    for (int i = 0; i < d; i++) {
+      attributes[i] = point.getAttribute(i);
+    }
+    Object[] ans = kdindex.nearest(attributes, k);
+    // Losing points' keys in this conversion, but the assumption is that keys are only used for printing to sink, so it's okay here.
+    // adding things to pq, but i have no actual distances
+    // keep the distances null and don't actually use this as a pq
+    // and make sure i recompute neighborhoods instead of updating
+    // or modify updating function to account for null distances here
+    // in fact, ans is in ascending order! so i need to make sure to leverage that
+    PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(Comparators.pointComparator().reversed());
+    for (Object neighbor : ans) {
+      // turn into Points
+    }
+    kNNs.put(point, pq);
+    kdindex.insert(attributes, point);
+  }
+
   // IMPROVE: may want to change visibility of some things to private, etc.
   public static int hammingDistance(long hasha, long hashb) {
     // the number of ones in hasha XOR hashb is the hamming distance
@@ -104,7 +124,6 @@ public class ILOF {
         for (int i = 0; i < d; i++) {
           dot += point.getAttribute(i) * hyperplane.get(i);
         }
-        //int bit = dot <= 0 ? 0 : 1;
         // left shift hash and set the lsb if bit is 1 (might not need bit at all, just check sign of dot)
         hash = hash << 1;
         if (dot > 0) hash |= 1;
@@ -116,15 +135,9 @@ public class ILOF {
       } else {
         searchSpace.addAll(hashTables.get(iter).get(hash));
       }
-      if (!(point.lshHashed)) { // hashes.get(point).size() < HASHTABLES
+      if (hashes.get(point).size() < HASHTABLES) {
         hashTables.get(iter).get(hash).add(point);
         hashes.get(point).add(hash);
-        if (iter == HASHTABLES - 1) {
-          // Only save R hashes per point (although i'm recomputing the hashes everytime this function executes)
-          // I'm assuming this shouldn't be an expensive function, but if it is, i'll make an inverse hashmap of point to hash(es)
-          // and end up only computing R * N hashes
-          point.lshHashed = true;
-        }
       }
     }
     return searchSpace;
@@ -180,9 +193,6 @@ public class ILOF {
     // for each table, compare point's hash with all other hashes, and pick top k closest hashes across all tables
     // this gives k buckets, combined into a single set of candidates, of which just pick any k (since sets are unordered, just pick first k of the set)
     // for slightly better accuracy, take entire bucket incrementally: get closest bucket, if less than k, move on to second closest bucket, and stop when i reach more than k (it's okay to exceed k within the same bucket)
-
-    // need first to retrieve point's hash for each table
-    // maybe i do need that inverse hashmap
 
     if (searchSpace.isEmpty() && pointStore.size() > 1) {
       for (int i = 0; i < HASHTABLES; i++) {
@@ -368,6 +378,7 @@ public class ILOF {
   public static void getkNN(Point point, String NNS_TECHNIQUE) {
     switch (NNS_TECHNIQUE) {
       case "FLAT": getFlatkNN(point); return;
+      case "KD": getKDkNN(point); return;
       case "LSH": getLshkNN(point); return;
       case "TARSOS": getTarsosLshkNN(point); return;
       default: System.out.println("Unsupported nearest neighbor search technique.");
@@ -541,6 +552,8 @@ public class ILOF {
     reachDistances = new HashMap<>();
     LRDs = new HashMap<>();
     LOFs = new HashMap<>();
+    // TODO: again, only init this if KD
+    kdindex = new KDTree(d); // In a KD Tree, K is the dimensionality
     // BUG: if these values don't exist in .env, parseInt fails.
     k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
     TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);

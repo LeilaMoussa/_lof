@@ -126,6 +126,8 @@
     <module>clof</module>
     <!-- Joren Six (joren@0110.be), TarsosLSH, Accessed from https://github.com/JorenSix/TarsosLSH -->
     <module>lsh</module>
+    <!-- Thomas Abeel (thomas@abeel.be), JavaML's KDTree, Cloned from https://github.com/AbeelLab/javaml -->
+    <!-- JARs also downloadable from https://java-ml.sourceforge.net/ -->
     <module>kdtree</module>
   </modules>
 </project>
