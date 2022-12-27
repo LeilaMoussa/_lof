@@ -40,6 +40,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 import be.tarsos.lsh.CommandLineInterface;
 import be.tarsos.lsh.*;
 import be.tarsos.lsh.families.*;
+import net.sf.javaml.core.kdtree.KDTree;
 
 public class ILOF {
 
@@ -74,6 +75,8 @@ public class ILOF {
   public static ArrayList<ArrayList<ArrayList<Double>>> hyperplanes; // R sets of H hyperplanes, each expressed as a d-dimensional vector
   public static ArrayList<HashMap<Long, HashSet<Point>>> hashTables; // R tables, with key being binary hash and value being set of points sharing that hash in that iteration
   public static HashMap<Point, ArrayList<Long>> hashes;
+
+  public static KDTree kdindex;
 
   // IMPROVE: may want to change visibility of some things to private, etc.
   public static int hammingDistance(long hasha, long hashb) {
@@ -182,7 +185,6 @@ public class ILOF {
     // maybe i do need that inverse hashmap
 
     if (searchSpace.isEmpty() && pointStore.size() > 1) {
-      System.out.println("search space empty");
       for (int i = 0; i < HASHTABLES; i++) {
         long hash = hashes.get(point).get(i);
         HashMap<Long, HashSet<Point>> currentTable = hashTables.get(i);
@@ -586,16 +588,16 @@ public class ILOF {
     computeProfileAndMaintainWindow(point);
   }
 
-  public static void printTables() {
-    System.out.println("start tables");
-    for (HashMap<Long,HashSet<Point>> table : hashTables) {
-      for (Entry<Long,HashSet<Point>> e : table.entrySet()) {
-        System.out.println(e.getKey() + " : " + e.getValue());
-      }
-      System.out.println("--------");
-    }
-    System.out.println("end tables");
-  }
+  // public static void printTables() {
+  //   System.out.println("start tables");
+  //   for (HashMap<Long,HashSet<Point>> table : hashTables) {
+  //     for (Entry<Long,HashSet<Point>> e : table.entrySet()) {
+  //       System.out.println(e.getKey() + " : " + e.getValue());
+  //     }
+  //     System.out.println("--------");
+  //   }
+  //   System.out.println("end tables");
+  // }
 
   public static void computeProfileAndMaintainWindow(Point point) {
     try {
@@ -655,8 +657,6 @@ public class ILOF {
         getLof(to_update);
       }
       getLof(point);
-
-      printTables();
     } catch (Exception e) {
       System.out.println("computeProfileAndMaintainWindow " + e);
       e.printStackTrace();
@@ -682,14 +682,14 @@ public class ILOF {
         for (Point x : pointStore) {
           // IMPROVE: impl verbose mode everywhere
           
-          System.out.println(x);
-          System.out.println(kNNs.get(x));
-          System.out.println(kDistances.get(x));
-          for (Pair<Point,Double> p : kNNs.get(x)) {
-            System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
-          }
-          System.out.println("\n" + LRDs.get(x));
-          System.out.println(LOFs.get(x));
+          // System.out.println(x);
+          // System.out.println(kNNs.get(x));
+          // System.out.println(kDistances.get(x));
+          // for (Pair<Point,Double> p : kNNs.get(x)) {
+          //   System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
+          // }
+          // System.out.println("\n" + LRDs.get(x));
+          // System.out.println(LOFs.get(x));
           // System.out.println("label " + labelPoint(x));
           // System.out.println(x.key + " " + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));

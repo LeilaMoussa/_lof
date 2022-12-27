@@ -12,9 +12,9 @@
 - [label-kdd.py](https://github.com/LeilaMoussa/_lof/blob/master/label-kdd.py): utility to sample and downsize KDDCUP99 dataset
 
 ## Immediate Todos and Improvements
-- [ ] Implement LSH from scratch, no more TarsosLSH
+- [x] Implement LSH from scratch, no more TarsosLSH
 - [ ] Use KD Tree for kNN search in ILOF instead of flat index
-- [x] Write more tests in the form of assertions
+- [ ] Write even more tests in the form of assertions
 - [ ] Automate benchmarking and evaluation
 - [ ] Add precision-recall in addition to ROC/AUC
 
