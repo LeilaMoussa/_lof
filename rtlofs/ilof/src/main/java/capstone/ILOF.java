@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
+//import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Properties;
 import java.util.stream.Collectors;
@@ -72,6 +72,7 @@ public class ILOF {
   public static long totalPoints;
   public static long startTime;
 
+  // TODO make sure age-based deletion and summarization account for these newer collections as well!
   public static ArrayList<ArrayList<ArrayList<Double>>> hyperplanes; // R sets of H hyperplanes, each expressed as a d-dimensional vector
   public static ArrayList<HashMap<Long, HashSet<Point>>> hashTables; // R tables, with key being binary hash and value being set of points sharing that hash in that iteration
   public static HashMap<Point, ArrayList<Long>> hashes;
@@ -84,6 +85,17 @@ public class ILOF {
       attributes[i] = point.getAttribute(i);
     }
     Object[] ans = kdindex.nearest(attributes, k);
+
+    // not easy to make this kdtree impl to give me back distances
+    // but the distances are all euclidean or euclidean squared
+    // so i'll convert ans to Points then get the distances using euclidean
+    // then put into pq
+    // extra O(kd) work per computation but oh well, that's the price to pay for accuracy i guess
+    // future improvements may make this a bit more efficient
+    // like implement our own kdtree with more control over distance calculations
+
+
+
     // Losing points' keys in this conversion, but the assumption is that keys are only used for printing to sink, so it's okay here.
     // adding things to pq, but i have no actual distances
     // keep the distances null and don't actually use this as a pq
@@ -91,10 +103,17 @@ public class ILOF {
     // or modify updating function to account for null distances here
     // in fact, ans is in ascending order! so i need to make sure to leverage that
     PriorityQueue<Pair<Point, Double>> pq = new PriorityQueue<>(Comparators.pointComparator().reversed());
-    for (Object neighbor : ans) {
-      // turn into Points
+    Double kdist = Double.POSITIVE_INFINITY; // double check this
+    for (int i = 0; i < ans.length; i++) {
+      Point other = (Point)ans[i];
+      Double distance = point.getDistanceTo(other, "EUCLIDEAN");
+      if (i == ans.length - 1) {
+        kdist = distance;
+      }
+      pq.add(new Pair<Point, Double>(other, distance));
     }
     kNNs.put(point, pq);
+    kDistances.put(point, kdist); // need to get distance to farthest neighbor, ans[ans.length - 1]
     kdindex.insert(attributes, point);
   }
 
