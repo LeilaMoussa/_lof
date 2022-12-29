@@ -80,6 +80,9 @@ public class ILOF {
   public static KDTree kdindex;
 
   public static void getKDkNN(Point point) {
+    if (kdindex == null) {
+      kdindex = new KDTree(d); // In a KD Tree, K is the dimensionality
+    }
     double[] attributes = new double[d];
     for (int i = 0; i < d; i++) {
       attributes[i] = point.getAttribute(i);
@@ -584,8 +587,6 @@ public class ILOF {
     totalPoints = 0;
     NNS_TECHNIQUE = config.get("ANNS");
     d = Integer.parseInt(config.get("DIMENSIONS"));
-    // TODO: again, only init this if KD
-    kdindex = new KDTree(d); // In a KD Tree, K is the dimensionality
     HASHES = Integer.parseInt(config.get("HASHES"));
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
     HYPERPLANES = Integer.parseInt(config.get("HYPERPLANES"));
@@ -608,6 +609,7 @@ public class ILOF {
                                           HashMap<Point, Double> rlofVpLrds,
                                           Dotenv config) {
     // IMPROVE: There's some overlap between RLOF.setup() and ILOF.setup()
+    // BAD! this happens on each iteration of RLOF
     setup(config);
     // NOTE: cannot import collections from RLOF because otherwise, circular dependency
 
