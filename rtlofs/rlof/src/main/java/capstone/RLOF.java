@@ -84,7 +84,7 @@ public class RLOF {
     public static void summarize() {
         try {
             // TODO: make window a heap so you don't do this every time
-            final int numberTopInliers = (int)(window.size() * INLIER_PERCENTAGE / 100);
+            final int numberTopInliers = (int)Math.ceil(window.size() * INLIER_PERCENTAGE / 100.0);
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
                                                             .orderedBy(Comparators.pointComparator())
                                                             .maximumSize(numberTopInliers)
