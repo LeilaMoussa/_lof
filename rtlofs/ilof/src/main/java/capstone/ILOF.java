@@ -84,7 +84,11 @@ public class ILOF {
     for (int i = 0; i < d; i++) {
       attributes[i] = point.getAttribute(i);
     }
-    Object[] ans = kdindex.nearest(attributes, k);
+    int n_neighs = Math.min(k, kdindex.count());
+    Object[] ans = new Object[n_neighs];
+    if (n_neighs > 0) {
+      ans = kdindex.nearest(attributes, n_neighs);
+    }
 
     // not easy to make this kdtree impl to give me back distances
     // but the distances are all euclidean or euclidean squared
@@ -106,7 +110,7 @@ public class ILOF {
     Double kdist = Double.POSITIVE_INFINITY; // double check this
     for (int i = 0; i < ans.length; i++) {
       Point other = (Point)ans[i];
-      Double distance = point.getDistanceTo(other, "EUCLIDEAN");
+      Double distance = point.getDistanceTo(other, DISTANCE_MEASURE); // PICKLE!! KD tree uses euc and euc squared, while i need to stay consistent in my distance measurements
       if (i == ans.length - 1) {
         kdist = distance;
       }
@@ -571,8 +575,6 @@ public class ILOF {
     reachDistances = new HashMap<>();
     LRDs = new HashMap<>();
     LOFs = new HashMap<>();
-    // TODO: again, only init this if KD
-    kdindex = new KDTree(d); // In a KD Tree, K is the dimensionality
     // BUG: if these values don't exist in .env, parseInt fails.
     k = Optional.ofNullable(Integer.parseInt(config.get("k"))).orElse(3);
     TOP_N = Optional.ofNullable(Integer.parseInt(config.get("TOP_N_OUTLIERS"))).orElse(10);
@@ -581,6 +583,8 @@ public class ILOF {
     totalPoints = 0;
     NNS_TECHNIQUE = config.get("ANNS");
     d = Integer.parseInt(config.get("DIMENSIONS"));
+    // TODO: again, only init this if KD
+    kdindex = new KDTree(d); // In a KD Tree, K is the dimensionality
     HASHES = Integer.parseInt(config.get("HASHES"));
     HASHTABLES = Integer.parseInt(config.get("HASHTABLES"));
     HYPERPLANES = Integer.parseInt(config.get("HYPERPLANES"));
@@ -714,14 +718,14 @@ public class ILOF {
         for (Point x : pointStore) {
           // IMPROVE: impl verbose mode everywhere
           
-          // System.out.println(x);
-          // System.out.println(kNNs.get(x));
-          // System.out.println(kDistances.get(x));
-          // for (Pair<Point,Double> p : kNNs.get(x)) {
-          //   System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
-          // }
-          // System.out.println("\n" + LRDs.get(x));
-          // System.out.println(LOFs.get(x));
+          System.out.println(x);
+          System.out.println(kNNs.get(x));
+          System.out.println(kDistances.get(x));
+          for (Pair<Point,Double> p : kNNs.get(x)) {
+            System.out.print(reachDistances.get(new Pair<>(x, p.getValue0())) + " ");
+          }
+          System.out.println("\n" + LRDs.get(x));
+          System.out.println(LOFs.get(x));
           // System.out.println("label " + labelPoint(x));
           // System.out.println(x.key + " " + labelPoint(x));
           mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));

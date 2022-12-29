@@ -253,6 +253,10 @@ public class KDTree implements Serializable{
 		}
 	}
 
+	public int count() {
+		return m_count;
+	}
+
 	public String toString() {
 		return m_root.toString(0);
 	}
