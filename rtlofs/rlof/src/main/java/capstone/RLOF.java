@@ -85,6 +85,7 @@ public class RLOF {
         try {
             // TODO: make window a heap so you don't do this every time
             final int numberTopInliers = (int)Math.ceil(window.size() * INLIER_PERCENTAGE / 100.0);
+            if (numberTopInliers == 0) return;
             MinMaxPriorityQueue<Pair<Point, Double>> sorted = MinMaxPriorityQueue
                                                             .orderedBy(Comparators.pointComparator())
                                                             .maximumSize(numberTopInliers)
@@ -202,7 +203,6 @@ public class RLOF {
             window.removeAll(toDelete);
             for (Point x : toDelete) {
                 if (!(x.getClass().equals(VPoint.class))) {
-                    //System.out.println(x.key + " " + labelPoint(x));
                     mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 }
 
@@ -293,7 +293,7 @@ public class RLOF {
         SINK = Utils.buildSinkFilename(config, true);
     }
 
-    // TODO: make shared util
+    // TODO: make shared util?
     public static int labelPoint(Point point) {
         return topOutliers.contains(new Pair<Point, Double>(point, LOFs.get(point))) ? 1 : 0;
       }
@@ -334,10 +334,7 @@ public class RLOF {
                     updateVps(triplet, point, kNNs.get(point), kDistances.get(point), reachDistances, LRDs.get(point));
                 }
                 fullyDeleteRealPoints(new HashSet<Point>(Arrays.asList(point)));
-
                 assert(Tests.pointHasNotAffectedRlof(point, window, kNNs, kDistances, reachDistances, LRDs, LOFs, symDistances));
-
-                // System.out.println(point.key + " " + labelPoint(point));
                 mapped.add(new KeyValue<String, Integer>(point.key, labelPoint(point)));
             }
             if (window.size() >= W) {
@@ -347,7 +344,6 @@ public class RLOF {
                 ageBasedDeletion();
             }
 
-            // System.out.println(totalPoints);
             if (totalPoints == Integer.parseInt(config.get("TOTAL_POINTS"))) {
                 long estimatedEndTime = System.nanoTime();
 
@@ -365,8 +361,7 @@ public class RLOF {
             }
             return mapped;
         })
-        .print(Printed.toFile(SINK))
-        ;
+        .print(Printed.toFile(SINK));
     }
 
     public static void main(String[] args) {

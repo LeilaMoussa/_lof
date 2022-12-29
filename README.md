@@ -13,8 +13,8 @@
 
 ## Immediate Todos and Improvements
 - [x] Implement LSH from scratch, no more TarsosLSH
-- [x] Use KD Tree for kNN search in ILOF instead of flat index (wip)
-- [ ] Verify RLOF's virtual point logic (wip)
+- [x] Use KD Tree for kNN search in ILOF instead of flat index
+- [x] Verify RLOF's virtual point logic
 - [ ] Write even more tests in the form of assertions
 - [ ] Automate benchmarking and evaluation
 - [ ] Add precision-recall in addition to ROC/AUC

@@ -110,6 +110,7 @@ public class ILOF {
     Double kdist = Double.POSITIVE_INFINITY; // double check this
     for (int i = 0; i < ans.length; i++) {
       Point other = (Point)ans[i];
+      // IMPROVE: use symDistances here
       Double distance = point.getDistanceTo(other, DISTANCE_MEASURE); // PICKLE!! KD tree uses euc and euc squared, while i need to stay consistent in my distance measurements
       if (i == ans.length - 1) {
         kdist = distance;
