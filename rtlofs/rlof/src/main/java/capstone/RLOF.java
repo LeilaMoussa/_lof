@@ -97,6 +97,7 @@ public class RLOF {
             HashSet<Point> toDelete = new HashSet<>();
             for (Pair<Point, Double> inlier : sorted) {
                 Point center = inlier.getValue0();
+                System.out.println("summ center " + center);
                 assert(Tests.centerIsNotVirtual(center));
                 toDelete.add(center);
                 double radius = kDistances.get(center);
@@ -198,10 +199,17 @@ public class RLOF {
         }
     }
 
+    // TODO: delete from ILOF.hashes, hashTables, and kdindex
+    // which may contain real points or virtual points
+    // vps are stored as VPoints, not as centers of blackholes :(
+    // so messy!!
+    // Ah yes, not deleting from kdindex causes errors in KD + SUMM
+    // and not deleting from hashTables causes similar error
     public static void fullyDeleteRealPoints(HashSet<Point> toDelete) {
         try {
             window.removeAll(toDelete);
             for (Point x : toDelete) {
+                System.out.println("x " + x);
                 if (!(x.getClass().equals(VPoint.class))) {
                     mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 }
@@ -221,6 +229,7 @@ public class RLOF {
                 for (Entry<Point, PriorityQueue<Pair<Point, Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
+                System.out.println("knns after deletion" + kNNs);
                 HashSet<HashSet<Point>> dkeys = new HashSet<>();
                 for (Entry<HashSet<Point>, Double> entry : symDistances.entrySet()) {
                     if (entry.getKey().contains(x)) {
@@ -353,7 +362,7 @@ public class RLOF {
                 };
                 assert(Tests.isMaxHeap(topOutliers));
                 for (Point x : window) {
-                  // System.out.println(x + " " + LOFs.get(x));
+                  System.out.println(x + " " + LOFs.get(x));
                   // System.out.println(x.key + " " + labelPoint(x));
                   mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 }
