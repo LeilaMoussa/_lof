@@ -97,7 +97,6 @@ public class RLOF {
             HashSet<Point> toDelete = new HashSet<>();
             for (Pair<Point, Double> inlier : sorted) {
                 Point center = inlier.getValue0();
-                System.out.println("summ center " + center);
                 assert(Tests.centerIsNotVirtual(center));
                 toDelete.add(center);
                 double radius = kDistances.get(center);
@@ -209,7 +208,6 @@ public class RLOF {
         try {
             window.removeAll(toDelete);
             for (Point x : toDelete) {
-                System.out.println("x " + x);
                 if (!(x.getClass().equals(VPoint.class))) {
                     mapped.add(new KeyValue<String, Integer>(x.key, labelPoint(x)));
                 }
@@ -229,7 +227,6 @@ public class RLOF {
                 for (Entry<Point, PriorityQueue<Pair<Point, Double>>> entry : kNNs.entrySet()) {
                     entry.getValue().removeIf(pair -> pair.getValue0().equals(x));
                 }
-                System.out.println("knns after deletion" + kNNs);
                 HashSet<HashSet<Point>> dkeys = new HashSet<>();
                 for (Entry<HashSet<Point>, Double> entry : symDistances.entrySet()) {
                     if (entry.getKey().contains(x)) {
@@ -237,6 +234,16 @@ public class RLOF {
                     }
                 }
                 symDistances.keySet().removeAll(dkeys);
+                if (ILOF.hashes != null) {
+                    ILOF.hashes.remove(x);
+                    ILOF.hashTables.forEach(table -> {
+                        table.entrySet().forEach(entry -> {
+                            entry.getValue().remove(x);
+                        });
+                    });
+                } else if (ILOF.kdindex != null) {
+                    ILOF.kdindex.delete(x.attributesToArray());
+                }
             }
         } catch (Exception e) {
             System.out.println("fullyDeleteRealPoints " + e + e.getStackTrace()[0].getLineNumber());
@@ -271,6 +278,21 @@ public class RLOF {
                     });
                 }
                 symDistances.keySet().removeAll(dkeys);
+                // to delete from hashes, hashTables, and kdindex, i need to look for VPoints whose center
+                // equals x
+                // hopefully we can find a nicer way to do all this
+                // if (ILOF.hashes != null) {
+                //     // remove key from hashes if key.class is VPoint and key.center == x
+                //     ILOF.hashTables.forEach(table -> {
+                //         table.entrySet().forEach(entry -> {
+                //             entry.getValue().removeIf(point -> point.getClass().equals(VPoint.class) &&
+                //              ((VPoint)point).center.equals(x));
+                //         });
+                //     });
+                // } else if (ILOF.kdindex != null) {
+                //     ILOF.kdindex // delete from kdindex objects that are instances of VPoint and center is x
+                // }
+                // what a pain!!!!!!
             }
         } catch (Exception e) {
             System.out.println("fullyDeleteVirtualPoints " + e + e.getStackTrace()[0].getLineNumber());

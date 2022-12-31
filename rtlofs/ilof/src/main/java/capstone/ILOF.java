@@ -86,10 +86,7 @@ public class ILOF {
     if (kdindex == null) {
       kdindex = new KDTree(d); // In a KD Tree, K is the dimensionality
     }
-    double[] attributes = new double[d];
-    for (int i = 0; i < d; i++) {
-      attributes[i] = point.getAttribute(i);
-    }
+    double[] attributes = point.attributesToArray();
     int n_neighs = Math.min(k, kdindex.count());
     Object[] ans = new Object[n_neighs];
     if (n_neighs > 0) {
@@ -124,7 +121,6 @@ public class ILOF {
       pq.add(new Pair<Point, Double>(other, distance));
     }
     kNNs.put(point, pq);
-    System.out.println("setting kdist of " + point + " to " + kdist);
     kDistances.put(point, kdist); // need to get distance to farthest neighbor, ans[ans.length - 1]
     kdindex.insert(attributes, point);
   }
@@ -418,16 +414,12 @@ public class ILOF {
 
   public static void getRds(Point point) {
     try {
-      System.out.println("getrds " + kNNs);
-      System.out.println("for point " + point);
       kNNs.get(point).forEach(neighborpair -> {
         Point neighbor = neighborpair.getValue0();
         Double kdist;
         if (neighbor.getClass().equals(VPoint.class)) {
-          System.out.println("1");
           kdist = vpKdists.get(((VPoint)neighbor).center);
         } else {
-          System.out.println("neigh " + neighbor);
           kdist = kDistances.get(neighbor);
         }
         Double dist;
@@ -437,8 +429,6 @@ public class ILOF {
           dist = point.getDistanceTo(neighbor, DISTANCE_MEASURE);
           symDistances.put(new HashSet<Point>(Arrays.asList(point, neighbor)), dist);
         }
-        System.out.println("kdist " + kdist);
-        System.out.println("dist " + dist);
         Double reachDist = Math.max(kdist, dist);
         Pair<Point, Point> pair = new Pair<>(point, neighbor);
         reachDistances.put(pair, reachDist);

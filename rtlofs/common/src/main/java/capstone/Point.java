@@ -61,8 +61,7 @@ public class Point {
       return null;
     }
 
-    public Vector toVector() {
-      // NOTE: this is NOT java.util.Vector, this is be.tarsos.lsh.Vector
+    public be.tarsos.lsh.Vector toVector() {
       double[] arr = new double[this.dim];
       for (int i = 0; i < this.dim; i++) {
         arr[i] = this.getAttribute(i);
@@ -76,7 +75,7 @@ public class Point {
       return new Vector(key, arr, virtual);
     }
 
-    public static Point fromVector(Vector v) {
+    public static Point fromVector(be.tarsos.lsh.Vector v) {
       double[] arr = v.getValues();
       ArrayList<Double> attrs = new ArrayList<>();
       for (double x : arr) {
@@ -88,6 +87,15 @@ public class Point {
       return new Point(v.getKey(), arr.length, attrs);
     }
 
+    // TODO use this where ever needed in the code (e.g. in getKDkNN)
+    public double[] attributesToArray() {
+      double[] ans = new double[this.dim];
+      for (int i = 0; i < this.dim; i++) {
+        ans[i] = this.getAttribute(i);
+      }
+      return ans;
+    }
+    
     @Override
     public boolean equals(Object other) {
       if (other == null || !(other.getClass().equals(Point.class))) return false;
