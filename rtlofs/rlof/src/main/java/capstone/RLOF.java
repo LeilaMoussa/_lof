@@ -12,6 +12,7 @@
 
 package capstone;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -253,7 +254,6 @@ public class RLOF {
     public static void fullyDeleteVirtualPoints(HashSet<Point> toDelete) {
         // toDelete is the set of blackhole centers
         try {
-            blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
             for (Point x : toDelete) {
                 vpKdists.remove(x);
                 vpLrds.remove(x);
@@ -281,18 +281,41 @@ public class RLOF {
                 // to delete from hashes, hashTables, and kdindex, i need to look for VPoints whose center
                 // equals x
                 // hopefully we can find a nicer way to do all this
-                // if (ILOF.hashes != null) {
-                //     // remove key from hashes if key.class is VPoint and key.center == x
-                //     ILOF.hashTables.forEach(table -> {
-                //         table.entrySet().forEach(entry -> {
-                //             entry.getValue().removeIf(point -> point.getClass().equals(VPoint.class) &&
-                //              ((VPoint)point).center.equals(x));
-                //         });
-                //     });
-                // } else if (ILOF.kdindex != null) {
-                //     ILOF.kdindex // delete from kdindex objects that are instances of VPoint and center is x
-                // }
+                HashSet<Point> hkeys = new HashSet<>();
+                if (ILOF.hashes != null) {
+                    // remove key from hashes if key.class is VPoint and key.center == x
+                    for (Entry<Point, ArrayList<Long>> entry : ILOF.hashes.entrySet()) {
+                        Point point = entry.getKey(); // use keyset instead
+                        if (point.getClass().equals(VPoint.class) &&
+                        ((VPoint)point).center.equals(x)) {
+                            hkeys.add(point);
+                        }
+                    }
+                    ILOF.hashes.keySet().removeAll(hkeys); // use removeif instead!
+                    ILOF.hashTables.forEach(table -> {
+                        table.entrySet().forEach(entry -> {
+                            entry.getValue().removeIf(point -> point.getClass().equals(VPoint.class) &&
+                             ((VPoint)point).center.equals(x));
+                        });
+                    });
+                } else if (ILOF.kdindex != null) {
+                    // delete from kdindex objects that are instances of VPoint and center is x
+                    // gonna need to add functionality to KDTree or KDNode where i can iterate on all nodes
+                    // or here, i could derive all possible virtual points from x (the center)
+                    // and try to delete each possible vp from the tree
+                    Triplet<Point, Double, Integer> correspondingBlackhole = null;
+                    for (Triplet<Point, Double, Integer> bh : blackHoles) {
+                        if (bh.getValue0().equals(x)) {
+                            correspondingBlackhole = bh;
+                            break;
+                        }
+                    }
+                    ArrayList<VPoint> vps = ILOF.deriveVirtualPointsFromBlackhole(correspondingBlackhole);
+                    vps.forEach(vp -> ILOF.kdindex.delete(vp.attributesToArray()));
+                }
                 // what a pain!!!!!!
+                blackHoles.removeIf(bh -> toDelete.contains(bh.getValue0()));
+                // this sucks!
             }
         } catch (Exception e) {
             System.out.println("fullyDeleteVirtualPoints " + e + e.getStackTrace()[0].getLineNumber());

@@ -297,15 +297,22 @@ public class ILOF {
     kDistances.put(point, pq.size() == 0 ? Double.POSITIVE_INFINITY : pq.peek().getValue1());
   }
 
+  public static ArrayList<VPoint> deriveVirtualPointsFromBlackhole(Triplet<Point, Double, Integer> bh) {
+    ArrayList<VPoint> ans = new ArrayList<>();
+    if (bh == null) return ans;
+    for (int pl = 0; pl < d; pl++) {
+      for (int pos = 0; pos < 2; pos++) {
+        ans.add(new VPoint(bh.getValue0(), bh.getValue1(), d, pl, pos));
+      }
+    }
+    return ans;
+  }
+
   public static ArrayList<VPoint> deriveVirtualPoints() {
     ArrayList<VPoint> ans = new ArrayList<>();
     try {
       blackHoles.forEach(bh -> {
-        for (int pl = 0; pl < d; pl++) {
-          for (int pos = 0; pos < 2; pos++) {
-            ans.add(new VPoint(bh.getValue0(), bh.getValue1(), d, pl, pos));
-          }
-        }
+        ans.addAll(deriveVirtualPointsFromBlackhole(bh));
       });
     } catch (Exception e) {
       System.out.println("deriveVirtualPoints " + e + " " + e.getStackTrace()[0].getLineNumber());
