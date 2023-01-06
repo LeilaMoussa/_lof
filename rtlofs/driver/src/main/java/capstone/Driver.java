@@ -18,8 +18,8 @@ public class Driver {
         // NOTE: Working directory must be rtlofs and .env must be in ./.env
         Dotenv dotenv = Dotenv.load();
 
-
         Properties props = new Properties();
+        // IMPROVE: use defaults here and anywhere else dotenv is read
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, dotenv.get("KAFKA_APP_ID"));
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BROKER"));
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
@@ -28,6 +28,7 @@ public class Driver {
         StreamsBuilder builder = new StreamsBuilder();
         KStream<String, String> rawData = builder.stream(dotenv.get("SOURCE_TOPIC"));
 
+        // Map the raw data values, deserialized as Strings containing the coordinates, to instances of Point
         KStream<String, Point> data = rawData.flatMapValues(value -> Arrays.asList(Utils.parse(value,
                                                                                     " ",
                                                                                     Integer.parseInt(dotenv.get("DIMENSIONS")))));
@@ -55,8 +56,10 @@ public class Driver {
         }
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
+        // The following statement is what actually starts the stream
         streams.start();
 
+        // This is supposed to gracefully handle shutdown with ctrl-c
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 }
