@@ -10,6 +10,7 @@
 - [roc.py](https://github.com/LeilaMoussa/_lof/blob/master/roc.py): generates roc curve and calculates auc given expected and actual labeled data
 - [key-dataset.py](https://github.com/LeilaMoussa/_lof/blob/master/key-dataset.py): utility to add keys to a dataset file
 - [label-kdd.py](https://github.com/LeilaMoussa/_lof/blob/master/label-kdd.py): utility to sample and downsize KDDCUP99 dataset
+- [choose-param.py](https://github.com/LeilaMoussa/_lof/blob/master/choose-param.py): utility to compute and graph roc auc and time elapsed from sink files while varying a single parameter. Assumes sink files are named as expected on capstone.common.Utils.buildSinkFilename().
 
 ## Immediate Todos and Improvements
 - [x] Implement LSH from scratch, no more TarsosLSH
@@ -20,8 +21,8 @@
 - [ ] Add precision-recall in addition to ROC/AUC
 
 ## Later Todos
-- [ ] Clean up repository from unused/insignificant files
-- [ ] Expressive code comments
+- [x] Clean up repository from unused/insignificant files
+- [x] Expressive code comments
 - [ ] Incremental LSH
 - [ ] Parallelization opportunities
 
@@ -35,4 +36,3 @@
 - More distance measures
 - Derive .env parameterss from dataset
 - Any code improvements: testing, optimization, style, good practices, etc.
-
